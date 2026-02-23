@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+/* CSS Variables — Light Theme */
+:root {
+  --clr-primary-a0: #2963cf;
+  --clr-primary-a10: #2958b6;
+  --clr-primary-a20: #284d9d;
+  --clr-primary-a30: #264285;
+  --clr-primary-a40: #23376e;
+  --clr-primary-a50: #1f2d57;
+  --clr-primary-a60: #1b2342;
+
+  --clr-surface-a0: #ede9df;
+  --clr-surface-tonal-a0: #dddbde;
+}
+
+/* Dark Mode */
+.dark {
+  --clr-surface-a0: #121212;
+  --clr-surface-tonal-a0: #181a22;
+}
+
+/* Base Typography */
+body {
+  font-family: "Space Grotesk", sans-serif;
+  background: var(--clr-surface-a0);
+  transition: background 0.3s ease;
+}
+
+h1, h2, h3 {
+  font-family: "Syne", sans-serif;
+}
