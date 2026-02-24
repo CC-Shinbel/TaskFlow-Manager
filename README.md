@@ -13,11 +13,11 @@ filtering, sorting, pagination, and protected routes.
 
 TaskFlow Manager is structured as a decoupled frontend-backend system:
 
--**Frontend**: React + TypeScript SPA
--**Backend**: Laravel REST API
--**Database**: MySQL (via XAMPP)
--**Authentication**: Token-based authentication
--**API Communication**: Axios
+- **Frontend**: React + TypeScript SPA
+- **Backend**: Laravel REST API
+- **Database**: MySQL (via XAMPP)
+- **Authentication**: Token-based authentication
+- **API Communication**: Axios
 
 The system follows industry-standard project structure, authentication
 flow, and separation of concerns.
@@ -26,15 +26,15 @@ flow, and separation of concerns.
 
 ## ✨ Features
 
--User Registration & Login
--Token-based Authentication
--Protected Routes (Frontend & Backend)
--Task CRUD Operations
--Filtering (status, priority)
--Sorting
--Pagination
--Modular Backend Architecture (Models, Controllers, Routes)
--CORS Configuration for cross-origin requests
+- User Registration & Login
+- Token-based Authentication
+- Protected Routes (Frontend & Backend)
+- Task CRUD Operations
+- Filtering (status, priority)
+- Sorting
+- Pagination
+- Modular Backend Architecture (Models, Controllers, Routes)
+- CORS Configuration for cross-origin requests
 
 ------------------------------------------------------------------------
 
@@ -139,8 +139,8 @@ Example usage after adding images:
 ### 1️⃣ Clone the Repository
 
     ``` bash
-git clone <https://github.com/yourusername/taskflow-manager.git>
-cd taskflow-manager
+    git clone <https://github.com/yourusername/taskflow-manager.git>
+    cd taskflow-manager
     ```
 
 ------------------------------------------------------------------------
@@ -148,12 +148,12 @@ cd taskflow-manager
 ### 2️⃣ Backend Setup (Laravel)
 
     ``` bash
-cd backend
-composer install
-cp .env.example .env
-php artisan key:generate
-php artisan migrate
-php artisan serve
+    cd backend
+    composer install
+    cp .env.example .env
+    php artisan key:generate
+    php artisan migrate
+    php artisan serve
     ```
 
 Ensure your local MySQL server (XAMPP) is running before migrating.
@@ -163,9 +163,9 @@ Ensure your local MySQL server (XAMPP) is running before migrating.
 ### 3️⃣ Frontend Setup (React)
 
     ``` bash
-cd frontend
-npm install
-npm run dev
+    cd frontend
+    npm install
+    npm run dev
     ```
 
 The frontend will connect to the Laravel backend API.
