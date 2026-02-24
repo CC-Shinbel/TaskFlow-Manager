@@ -27,6 +27,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::apiResource('tasks', TaskController::class);
 
+    Route::get('/user', [AuthController::class, 'me']);
 });
 
 Route::get('/health', function () {
