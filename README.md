@@ -50,7 +50,9 @@ flow, and separation of concerns.
 
 Example usage after adding images:
 
-    ![Login Page](./screenshots/login.png)
+```
+![Login Page](./screenshots/login.png)
+```
 
 ------------------------------------------------------------------------
 
@@ -58,13 +60,15 @@ Example usage after adding images:
 
 ### High-Level System Flow
 
-    React (Frontend)
-            ↓
-    Axios API Requests
-            ↓
-    Laravel REST API
-            ↓
-    MySQL Database (XAMPP)
+```
+React (Frontend)
+        ↓
+Axios API Requests
+        ↓
+Laravel REST API
+        ↓
+MySQL Database (XAMPP)
+```
 
 ### Backend Structure
 
@@ -115,22 +119,24 @@ Example usage after adding images:
 
 ## 📂 Project Structure
 
-    taskflow-manager/
-    │
-    ├── backend/          # Laravel API
-    │   ├── app/
-    │   ├── routes/
-    │   ├── database/
-    │   └── ...
-    │
-    ├── frontend/         # React Application
-    │   ├── src/
-    │   ├── components/
-    │   ├── pages/
-    │   └── ...
-    │
-    ├── screenshots/
-    └── README.md
+```
+taskflow-manager/
+│
+├── backend/          # Laravel API
+│   ├── app/
+│   ├── routes/
+│   ├── database/
+│   └── ...
+│
+├── frontend/         # React Application
+│   ├── src/
+│   ├── components/
+│   ├── pages/
+│   └── ...
+│
+├── screenshots/
+└── README.md
+```
 
 ------------------------------------------------------------------------
 
@@ -138,23 +144,23 @@ Example usage after adding images:
 
 ### 1️⃣ Clone the Repository
 
-    ```bash
-    git clone <https://github.com/yourusername/taskflow-manager.git>
-    cd taskflow-manager
-    ```
+```bash
+git clone <https://github.com/yourusername/taskflow-manager.git>
+cd taskflow-manager
+```
 
 ------------------------------------------------------------------------
 
 ### 2️⃣ Backend Setup (Laravel)
 
-    ```bash
-    cd backend
-    composer install
-    cp .env.example .env
-    php artisan key:generate
-    php artisan migrate
-    php artisan serve
-    ```
+```bash
+cd backend
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
+php artisan serve
+```
 
 Ensure your local MySQL server (XAMPP) is running before migrating.
 
@@ -162,11 +168,11 @@ Ensure your local MySQL server (XAMPP) is running before migrating.
 
 ### 3️⃣ Frontend Setup (React)
 
-    ```bash
-    cd frontend
-    npm install
-    npm run dev
-    ```
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
 The frontend will connect to the Laravel backend API.
 
