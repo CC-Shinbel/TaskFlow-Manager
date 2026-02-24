@@ -126,6 +126,7 @@ const EditTaskPage = () => {
             {/* Status + Priority */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
+              {/* STATUS */}
               <div>
                 <label className="block text-sm mb-2">
                   Status
@@ -135,14 +136,21 @@ const EditTaskPage = () => {
                   onChange={(e) =>
                     setTask({ ...task, status: e.target.value as any })
                   }
-                  className="w-full px-4 py-2 rounded-xl bg-white/50 border border-white/30"
+                  className="w-full px-4 py-2 rounded-xl bg-white/70 text-black border border-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--clr-primary-a0)]"
                 >
-                  <option value="pending">Pending</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="completed">Completed</option>
+                  <option className="text-black" value="pending">
+                    Pending
+                  </option>
+                  <option className="text-black" value="in_progress">
+                    In Progress
+                  </option>
+                  <option className="text-black" value="completed">
+                    Completed
+                  </option>
                 </select>
               </div>
 
+              {/* PRIORITY */}
               <div>
                 <label className="block text-sm mb-2">
                   Priority
@@ -152,11 +160,17 @@ const EditTaskPage = () => {
                   onChange={(e) =>
                     setTask({ ...task, priority: e.target.value as any })
                   }
-                  className="w-full px-4 py-2 rounded-xl bg-white/50 border border-white/30"
+                  className="w-full px-4 py-2 rounded-xl bg-white/70 text-black border border-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--clr-primary-a0)]"
                 >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
+                  <option className="text-black" value="low">
+                    Low
+                  </option>
+                  <option className="text-black" value="medium">
+                    Medium
+                  </option>
+                  <option className="text-black" value="high">
+                    High
+                  </option>
                 </select>
               </div>
 
