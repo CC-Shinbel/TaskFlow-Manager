@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
 import { useAuth } from "../hooks/UseAuth";
+import axios from "axios";
 
 interface DashboardData {
   total_tasks: number;
@@ -24,10 +25,14 @@ const DashboardPage = () => {
     try {
       const response = await api.get("/dashboard");
       setData(response.data.data);
-    } catch (err: any) {
-      setError(
-        err.response?.data?.message || "Failed to load dashboard."
-      );
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        setError(
+          err.response?.data?.message || "Failed to load dashboard."
+        );
+      } else {
+        setError("Unexpected error occurred.");
+      }
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../hooks/UseAuth";
 import { useNavigate, Link } from "react-router-dom";
+import axios from "axios";
 
 const LoginPage = () => {
   const { login } = useAuth();
@@ -20,10 +21,14 @@ const LoginPage = () => {
     try {
       await login(email, password);
       navigate("/dashboard");
-    } catch (err: any) {
-      setError(
-        err.response?.data?.message || "Login failed. Please try again."
-      );
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        setError(
+          err.response?.data?.message || "Login failed."
+        );
+      } else {
+        setError("Unexpected error occurred.");
+      }
     } finally {
       setLoading(false);
     }

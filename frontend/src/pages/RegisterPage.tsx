@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../hooks/UseAuth";
 import { useNavigate, Link } from "react-router-dom";
+import axios from "axios";
 
 const RegisterPage = () => {
   const { register } = useAuth();
@@ -28,10 +29,14 @@ const RegisterPage = () => {
     try {
       await register(name, email, password, passwordConfirmation);
       navigate("/dashboard");
-    } catch (err: any) {
-      setError(
-        err.response?.data?.message || "Registration failed. Try again."
-      );
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        setError(
+          err.response?.data?.message || "Registration failed."
+        );
+      } else {
+        setError("Unexpected error occurred.");
+      }
     } finally {
       setLoading(false);
     }

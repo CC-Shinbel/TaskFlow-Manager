@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../hooks/UseAuth";
+import axios from "axios";
 
 interface Task {
   id: number;
@@ -13,6 +15,7 @@ interface Task {
 
 const TaskListPage = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,12 +29,12 @@ const TaskListPage = () => {
   const [priority, setPriority] = useState("");
   const [sort, setSort] = useState("asc");
 
-  useEffect(() => {
-    fetchTasks();
-  }, [page, search, status, priority, sort]);
-
-  const fetchTasks = async () => {
+  // =========================
+  // FETCH TASKS
+  // =========================
+  const fetchTasks = useCallback(async () => {
     setLoading(true);
+    setError(null);
 
     try {
       const response = await api.get("/tasks", {
@@ -46,10 +49,44 @@ const TaskListPage = () => {
 
       setTasks(response.data.data.data);
       setLastPage(response.data.data.last_page);
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to fetch tasks.");
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        setError(
+          err.response?.data?.message || "Failed to fetch tasks."
+        );
+      } else {
+        setError("Unexpected error occurred.");
+      }
     } finally {
       setLoading(false);
+    }
+  }, [page, search, status, priority, sort]);
+
+  useEffect(() => {
+    fetchTasks();
+  }, [fetchTasks]);
+
+  // =========================
+  // DELETE TASK
+  // =========================
+  const handleDelete = async (id: number) => {
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this task?"
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      await api.delete(`/tasks/${id}`);
+      fetchTasks(); // refresh list
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        setError(
+          err.response?.data?.message || "Delete failed."
+        );
+      } else {
+        setError("Unexpected error occurred.");
+      }
     }
   };
 
@@ -78,13 +115,19 @@ const TaskListPage = () => {
             placeholder="Search..."
             className="px-4 py-2 rounded-xl bg-white/50 border border-white/30 focus:outline-none"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
           />
 
           <select
             className="px-4 py-2 rounded-xl bg-white/50 border border-white/30"
             value={status}
-            onChange={(e) => setStatus(e.target.value)}
+            onChange={(e) => {
+              setStatus(e.target.value);
+              setPage(1);
+            }}
           >
             <option value="">All Status</option>
             <option value="pending">Pending</option>
@@ -95,7 +138,10 @@ const TaskListPage = () => {
           <select
             className="px-4 py-2 rounded-xl bg-white/50 border border-white/30"
             value={priority}
-            onChange={(e) => setPriority(e.target.value)}
+            onChange={(e) => {
+              setPriority(e.target.value);
+              setPage(1);
+            }}
           >
             <option value="">All Priority</option>
             <option value="low">Low</option>
@@ -106,7 +152,10 @@ const TaskListPage = () => {
           <select
             className="px-4 py-2 rounded-xl bg-white/50 border border-white/30"
             value={sort}
-            onChange={(e) => setSort(e.target.value)}
+            onChange={(e) => {
+              setSort(e.target.value);
+              setPage(1);
+            }}
           >
             <option value="asc">Due Date ↑</option>
             <option value="desc">Due Date ↓</option>
@@ -118,31 +167,33 @@ const TaskListPage = () => {
               setStatus("");
               setPriority("");
               setSort("asc");
+              setPage(1);
             }}
             className="px-4 py-2 rounded-xl bg-white/20 text-white hover:bg-white/30 transition"
           >
             Reset
           </button>
-
         </div>
 
-        {/* TASK GRID */}
+        {/* LOADING */}
         {loading && (
           <p className="text-white">Loading tasks...</p>
         )}
 
+        {/* ERROR */}
         {error && (
-          <p className="text-red-300">{error}</p>
+          <p className="text-red-300 mb-4">{error}</p>
         )}
 
+        {/* EMPTY STATE */}
         {!loading && tasks.length === 0 && (
           <div className="text-white text-center mt-10">
             No tasks found.
           </div>
         )}
 
+        {/* TASK GRID */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-
           {tasks.map((task) => (
             <div
               key={task.id}
@@ -164,14 +215,31 @@ const TaskListPage = () => {
               <div className="mt-2 text-xs opacity-70">
                 Due: {task.due_date}
               </div>
+
+              {/* ACTION BUTTONS */}
+              <div className="mt-4 flex gap-3">
+                <button
+                  onClick={() =>
+                    navigate(`/tasks/${task.id}/edit`)
+                  }
+                  className="px-3 py-1 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm"
+                >
+                  Edit
+                </button>
+
+                <button
+                  onClick={() => handleDelete(task.id)}
+                  className="px-3 py-1 bg-red-500 hover:bg-red-600 rounded-lg text-sm"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           ))}
-
         </div>
 
         {/* PAGINATION */}
         <div className="flex justify-center gap-4 mt-10 text-white">
-
           <button
             disabled={page === 1}
             onClick={() => setPage(page - 1)}
@@ -191,7 +259,6 @@ const TaskListPage = () => {
           >
             Next
           </button>
-
         </div>
 
       </div>

@@ -6,6 +6,7 @@ import TaskListPage from "../pages/TaskListPage.tsx";
 import CreateTaskPage from "../pages/CreateTaskPage.tsx";
 import EditTaskPage from "../pages/EditTaskPage.tsx";
 import ProtectedRoute from "../components/ProtectedRoute.tsx";
+import AppLayout from "../layouts/AppLayout";
 
 const AppRouter = () => {
   return (
@@ -18,7 +19,9 @@ const AppRouter = () => {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <DashboardPage />
+              <AppLayout>
+                <DashboardPage />
+              </AppLayout>
             </ProtectedRoute>
           }
         />
@@ -27,7 +30,9 @@ const AppRouter = () => {
           path="/tasks"
           element={
             <ProtectedRoute>
-              <TaskListPage />
+              <AppLayout>
+                <TaskListPage />
+              </AppLayout>
             </ProtectedRoute>
           }
         />
@@ -36,7 +41,9 @@ const AppRouter = () => {
           path="/tasks/create"
           element={
             <ProtectedRoute>
-              <CreateTaskPage />
+              <AppLayout>
+                <CreateTaskPage />
+              </AppLayout>
             </ProtectedRoute>
           }
         />
@@ -45,7 +52,9 @@ const AppRouter = () => {
           path="/tasks/:id/edit"
           element={
             <ProtectedRoute>
-              <EditTaskPage />
+              <AppLayout>
+                <EditTaskPage />
+              </AppLayout>
             </ProtectedRoute>
           }
         />
