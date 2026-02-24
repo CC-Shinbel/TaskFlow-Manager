@@ -138,7 +138,7 @@ Example usage after adding images:
 
 ### 1️⃣ Clone the Repository
 
-    ``` bash
+    ```bash
     git clone <https://github.com/yourusername/taskflow-manager.git>
     cd taskflow-manager
     ```
@@ -147,7 +147,7 @@ Example usage after adding images:
 
 ### 2️⃣ Backend Setup (Laravel)
 
-    ``` bash
+    ```bash
     cd backend
     composer install
     cp .env.example .env
@@ -162,7 +162,7 @@ Ensure your local MySQL server (XAMPP) is running before migrating.
 
 ### 3️⃣ Frontend Setup (React)
 
-    ``` bash
+    ```bash
     cd frontend
     npm install
     npm run dev
