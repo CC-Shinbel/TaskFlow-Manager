@@ -3,18 +3,41 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Task extends Model
 {
-    use HasFactory;
-
     protected $fillable = [
-        'title','description','status','priority','due_date','user_id'
+        'project_id',
+        'created_by',
+        'title',
+        'description',
+        'status',
+        'priority',
+        'due_date'
     ];
 
-    public function user()
+    // Project (nullable for personal)
+    public function project()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(Project::class);
+    }
+
+    // Creator
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    // Assigned users
+    public function assignees()
+    {
+        return $this->belongsToMany(User::class, 'task_user')
+            ->withTimestamps();
+    }
+
+    // Check if personal task
+    public function isPersonal()
+    {
+        return is_null($this->project_id);
     }
 }

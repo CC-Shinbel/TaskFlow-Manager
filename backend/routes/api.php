@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\ProjectMemberController;
 
 /*
 |--------------------------------------------------------------------------
@@ -24,6 +26,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 
     Route::get('/dashboard', [DashboardController::class, 'index']);
+    Route::apiResource('projects', ProjectController::class)
+        ->only(['index', 'store', 'show', 'destroy']);
+
+    Route::post('projects/{project}/members', [ProjectMemberController::class, 'store']);
+    Route::delete('projects/{project}/members/{user}', [ProjectMemberController::class, 'destroy']);
 
     Route::apiResource('tasks', TaskController::class);
 

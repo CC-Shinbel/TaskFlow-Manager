@@ -3,48 +3,37 @@
 namespace App\Http\Controllers;
 
 use App\Models\Task;
+use App\Models\Project;
 use Illuminate\Http\Request;
 use App\Http\Requests\StoreTaskRequest;
 use App\Http\Requests\UpdateTaskRequest;
 
 class TaskController extends Controller
 {
+    /**
+     * List all tasks user has access to
+     */
     public function index(Request $request)
     {
         $user = $request->user();
 
-        $query = Task::query();
+        $tasks = Task::where(function ($query) use ($user) {
 
-        // Role-based visibility
-        if (!$user->isAdmin()) {
-            $query->where('user_id', $user->id);
-        }
+            // Personal tasks
+            $query->whereNull('project_id')
+                ->where('created_by', $user->id);
 
-        // Search (title + description)
-        if ($request->filled('search')) {
-            $query->where(function ($q) use ($request) {
-                $q->where('title', 'like', "%{$request->search}%")
-                    ->orWhere('description', 'like', "%{$request->search}%");
+            // OR project tasks where user is member
+            $query->orWhereHas('project.users', function ($q) use ($user) {
+                $q->where('user_id', $user->id);
             });
-        }
-
-        // Status filter
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
-
-        // Priority filter
-        if ($request->filled('priority')) {
-            $query->where('priority', $request->priority);
-        }
-
-        // Sorting
-        $sortDirection = $request->get('sort', 'asc');
-        if (in_array($sortDirection, ['asc', 'desc'])) {
-            $query->orderBy('due_date', $sortDirection);
-        }
-
-        $tasks = $query->paginate(10);
+        })
+            ->with([
+                'project:id,name',
+                'creator:id,name',
+                'assignees:id,name'
+            ])
+            ->paginate(10);
 
         return response()->json([
             'status'  => true,
@@ -53,22 +42,53 @@ class TaskController extends Controller
         ]);
     }
 
+    /**
+     * Create task (personal or project)
+     */
     public function store(StoreTaskRequest $request)
     {
         $user = $request->user();
+        $data = $request->validated();
+
+        // If project task → enforce project permission
+        if (!empty($data['project_id'])) {
+
+            $project = Project::findOrFail($data['project_id']);
+
+            $role = $project->users()
+                ->where('user_id', $user->id)
+                ->value('role');
+
+            if (!in_array($role, ['owner', 'co_owner', 'collaborator'])) {
+                abort(403, 'Not allowed to create tasks in this project.');
+            }
+        }
 
         $task = Task::create([
-            ...$request->validated(),
-            'user_id' => $user->id,
+            'project_id' => $data['project_id'] ?? null,
+            'created_by' => $user->id,
+            'title'      => $data['title'],
+            'description' => $data['description'] ?? null,
+            'status'     => $data['status'] ?? 'pending',
+            'priority'   => $data['priority'] ?? 'medium',
+            'due_date'   => $data['due_date'] ?? null,
+        ]);
+
+        // Automatically assign creator
+        $task->assignees()->attach($user->id, [
+            'assigned_by' => $user->id
         ]);
 
         return response()->json([
             'status'  => true,
             'message' => 'Task created',
-            'data'    => $task
+            'data'    => $task->load('assignees:id,name')
         ], 201);
     }
 
+    /**
+     * Show single task
+     */
     public function show(Request $request, Task $task)
     {
         $this->authorizeTaskAccess($request->user(), $task);
@@ -76,10 +96,17 @@ class TaskController extends Controller
         return response()->json([
             'status'  => true,
             'message' => 'Task retrieved',
-            'data'    => $task
+            'data'    => $task->load([
+                'project:id,name',
+                'creator:id,name',
+                'assignees:id,name'
+            ])
         ]);
     }
 
+    /**
+     * Update task
+     */
     public function update(UpdateTaskRequest $request, Task $task)
     {
         $this->authorizeTaskAccess($request->user(), $task);
@@ -89,10 +116,13 @@ class TaskController extends Controller
         return response()->json([
             'status'  => true,
             'message' => 'Task updated',
-            'data'    => $task
+            'data'    => $task->load('assignees:id,name')
         ]);
     }
 
+    /**
+     * Delete task
+     */
     public function destroy(Request $request, Task $task)
     {
         $this->authorizeTaskAccess($request->user(), $task);
@@ -106,10 +136,27 @@ class TaskController extends Controller
         ]);
     }
 
+    /**
+     * Core task access control
+     */
     private function authorizeTaskAccess($user, Task $task)
     {
-        if (!$user->isAdmin() && $task->user_id !== $user->id) {
-            abort(403, 'Unauthorized');
+        // Personal task
+        if (is_null($task->project_id)) {
+            if ($task->created_by !== $user->id) {
+                abort(403, 'Unauthorized personal task access.');
+            }
+            return;
+        }
+
+        // Project task → user must belong to project
+        $isMember = $task->project
+            ->users()
+            ->where('user_id', $user->id)
+            ->exists();
+
+        if (!$isMember) {
+            abort(403, 'Unauthorized project task access.');
         }
     }
 }
