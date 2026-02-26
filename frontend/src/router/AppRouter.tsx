@@ -7,7 +7,8 @@ import CreateTaskPage from "../pages/CreateTaskPage.tsx";
 import EditTaskPage from "../pages/EditTaskPage.tsx";
 import ProtectedRoute from "../components/ProtectedRoute.tsx";
 import AppLayout from "../layouts/AppLayout";
-
+import ProjectsPage from "../pages/ProjectsPage.tsx";
+import ProjectDetailsPage from "../pages/ProjectDetailsPage.tsx";
 const AppRouter = () => {
   return (
     <BrowserRouter>
@@ -54,6 +55,27 @@ const AppRouter = () => {
             <ProtectedRoute>
               <AppLayout>
                 <EditTaskPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/projects"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <ProjectsPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/projects/:id"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <ProjectDetailsPage />
               </AppLayout>
             </ProtectedRoute>
           }
