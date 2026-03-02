@@ -14,7 +14,7 @@ class DashboardController extends Controller
         $query = Task::query();
 
         if (!$user->isAdmin()) {
-            $query->where('user_id', $user->id);
+            $query->where('created_by', $user->id);
         }
 
         $total = (clone $query)->count();

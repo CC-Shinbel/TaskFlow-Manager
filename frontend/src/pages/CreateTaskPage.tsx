@@ -39,130 +39,125 @@ const CreateTaskPage = () => {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[var(--clr-primary-a10)] via-[var(--clr-primary-a20)] to-[var(--clr-primary-a40)]">
+    <div className="flex flex-col h-full p-8">
 
-      {/* Background Shapes */}
-      <div className="absolute w-[500px] h-[500px] bg-white/10 rounded-full blur-3xl -top-20 -left-20"></div>
-      <div className="absolute w-[600px] h-[600px] bg-blue-300/20 rounded-full blur-3xl bottom-[-150px] right-[-150px]"></div>
+      <h1 className="mb-8 text-3xl font-bold text-white">
+        Create New Task
+      </h1>
 
-      <div className="relative z-10 p-10">
+      {/* FULL WIDTH + HEIGHT CARD */}
+      <div className="flex-1 w-full h-full p-10 overflow-y-auto text-white border shadow-xl backdrop-blur-xl bg-white/30 border-white/20 rounded-2xl">
 
-        <h1 className="text-3xl font-bold text-white mb-8">
-          Create New Task
-        </h1>
+        <form onSubmit={handleSubmit} className="flex flex-col h-full space-y-8">
 
-        <div className="max-w-2xl backdrop-blur-xl bg-white/30 border border-white/20 rounded-2xl shadow-xl p-8">
+          {/* Title */}
+          <div>
+            <label className="block mb-2 text-sm">
+              Title
+            </label>
+            <input
+              type="text"
+              required
+              className="w-full px-4 py-3 rounded-xl bg-white/50 border border-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--clr-primary-a0)]"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6 text-white">
+          {/* Description */}
+          <div>
+            <label className="block mb-2 text-sm">
+              Description
+            </label>
+            <textarea
+              rows={6}
+              required
+              className="w-full px-4 py-3 rounded-xl bg-white/50 border border-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--clr-primary-a0)]"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
 
-            {/* Title */}
+          {/* Status & Priority */}
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+
             <div>
-              <label className="block text-sm mb-2">
-                Title
+              <label className="block mb-2 text-sm">
+                Status
               </label>
-              <input
-                type="text"
-                required
-                className="w-full px-4 py-2 rounded-xl bg-white/50 border border-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--clr-primary-a0)]"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-              />
-            </div>
-
-            {/* Description */}
-            <div>
-              <label className="block text-sm mb-2">
-                Description
-              </label>
-              <textarea
-                rows={4}
-                required
-                className="w-full px-4 py-2 rounded-xl bg-white/50 border border-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--clr-primary-a0)]"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-            </div>
-
-            {/* Status & Priority Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-              <div>
-                <label className="block text-sm mb-2">
-                  Status
-                </label>
-                <select
-                  className="w-full px-4 py-2 rounded-xl bg-white/50 border border-white/30"
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                >
-                  <option value="pending">Pending</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="completed">Completed</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm mb-2">
-                  Priority
-                </label>
-                <select
-                  className="w-full px-4 py-2 rounded-xl bg-white/50 border border-white/30"
-                  value={priority}
-                  onChange={(e) => setPriority(e.target.value)}
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
-
-            </div>
-
-            {/* Due Date */}
-            <div>
-              <label className="block text-sm mb-2">
-                Due Date
-              </label>
-              <input
-                type="date"
-                required
-                className="w-full px-4 py-2 rounded-xl bg-white/50 border border-white/30"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-              />
-            </div>
-
-            {error && (
-              <div className="text-sm text-[#b13535] bg-[#e29d9d]/20 p-2 rounded-lg">
-                {error}
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="flex justify-end gap-4">
-
-              <button
-                type="button"
-                onClick={() => navigate("/tasks")}
-                className="px-6 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white transition"
+              <select
+                className="w-full px-4 py-3 text-black border rounded-xl bg-white/50 border-white/30"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
               >
-                Cancel
-              </button>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-6 py-2 rounded-xl bg-[var(--clr-primary-a0)] hover:bg-[var(--clr-primary-a10)] text-white font-semibold transition disabled:opacity-50"
-              >
-                {loading ? "Creating..." : "Create Task"}
-              </button>
-
+                <option value="pending">Pending</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+              </select>
             </div>
 
-          </form>
+            <div>
+              <label className="block mb-2 text-sm">
+                Priority
+              </label>
+              <select
+                className="w-full px-4 py-3 text-black border rounded-xl bg-white/50 border-white/30"
+                value={priority}
+                onChange={(e) => setPriority(e.target.value)}
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
 
-        </div>
+          </div>
+
+          {/* Due Date */}
+          <div>
+            <label className="block mb-2 text-sm">
+              Due Date
+            </label>
+            <input
+              type="date"
+              required
+              className="w-full px-4 py-3 text-black border rounded-xl bg-white/50 border-white/30"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+            />
+          </div>
+
+          {error && (
+            <div className="text-sm text-[#b13535] bg-[#e29d9d]/20 p-3 rounded-lg">
+              {error}
+            </div>
+          )}
+
+          {/* Push buttons to bottom */}
+          <div className="flex justify-end gap-4 pt-4 mt-auto">
+
+            <button
+              type="button"
+              onClick={() => navigate("/tasks")}
+              className="px-6 py-3 text-white transition rounded-xl bg-white/20 hover:bg-white/30"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-8 py-3 rounded-xl bg-[var(--clr-primary-a0)] hover:bg-[var(--clr-primary-a10)] text-white font-semibold transition disabled:opacity-50"
+            >
+              {loading ? "Creating..." : "Create Task"}
+            </button>
+
+          </div>
+
+        </form>
+
       </div>
+
     </div>
   );
 };

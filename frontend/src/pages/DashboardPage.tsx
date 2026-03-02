@@ -69,7 +69,7 @@ const DashboardPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-white">
+      <div className="flex items-center justify-center min-h-screen text-white">
         Loading dashboard...
       </div>
     );
@@ -84,26 +84,6 @@ const DashboardPage = () => {
 
       <div className="relative z-10 flex flex-col flex-1">
 
-        {/* NAVBAR */}
-        <div className="backdrop-blur-xl bg-white/30 border-b border-white/20 px-8 py-4 flex justify-between items-center shadow-lg">
-          <h1 className="text-2xl font-bold text-white">
-            TaskFlow Dashboard
-          </h1>
-
-          <div className="flex items-center gap-4">
-            <span className="text-white text-sm">
-              {user?.name} ({user?.role})
-            </span>
-
-            <button
-              onClick={logout}
-              className="px-4 py-2 rounded-xl bg-white/20 text-white hover:bg-white/30 transition"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-
         {/* ERROR DISPLAY */}
         {error && (
           <div className="mx-10 mt-6 backdrop-blur-xl bg-[#e29d9d]/20 border border-[#b13535]/30 rounded-xl p-4 text-[#b13535]">
@@ -112,13 +92,13 @@ const DashboardPage = () => {
         )}
 
         {/* MAIN GRID */}
-        <div className="p-10 flex-1 grid grid-cols-1 xl:grid-cols-12 gap-8">
+        <div className="grid flex-1 grid-cols-1 gap-8 p-10 xl:grid-cols-12">
 
           {/* LEFT SIDE */}
-          <div className="xl:col-span-8 flex flex-col gap-8 h-full">
+          <div className="flex flex-col h-full gap-8 xl:col-span-8">
 
             {/* Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <StatCard title="Total Tasks" value={data?.total_tasks} />
               <StatCard title="Completed" value={data?.completed} color="text-[#58dbad]" />
               <StatCard title="Pending" value={data?.pending} color="text-[#ebca85]" />
@@ -133,7 +113,7 @@ const DashboardPage = () => {
           </div>
 
           {/* RIGHT SIDE */}
-          <div className="xl:col-span-4 flex flex-col gap-8 h-full">
+          <div className="flex flex-col h-full gap-8 xl:col-span-4">
 
             <div className="flex-1">
               <FocusTimerCard />

@@ -54,7 +54,7 @@ const EditTaskPage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen text-white">
+      <div className="flex items-center justify-center h-full text-white">
         Loading task...
       </div>
     );
@@ -62,144 +62,140 @@ const EditTaskPage = () => {
 
   if (!task) {
     return (
-      <div className="flex items-center justify-center min-h-screen text-red-300">
+      <div className="flex items-center justify-center h-full text-red-300">
         {error || "Task not found."}
       </div>
     );
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[var(--clr-primary-a10)] via-[var(--clr-primary-a20)] to-[var(--clr-primary-a40)]">
+    <div className="flex flex-col h-full p-8">
 
-      {/* Background Shapes */}
-      <div className="absolute w-[500px] h-[500px] bg-white/10 rounded-full blur-3xl -top-20 -left-20"></div>
-      <div className="absolute w-[600px] h-[600px] bg-blue-300/20 rounded-full blur-3xl bottom-[-150px] right-[-150px]"></div>
+      <h1 className="mb-8 text-3xl font-bold text-white">
+        Edit Task
+      </h1>
 
-      <div className="relative z-10 p-10">
+      {/* FULL WIDTH + HEIGHT CARD */}
+      <div className="flex-1 w-full h-full p-10 overflow-y-auto text-white border shadow-xl backdrop-blur-xl bg-white/30 border-white/20 rounded-2xl">
 
-        <h1 className="text-3xl font-bold text-white mb-8">
-          Edit Task
-        </h1>
+        <form onSubmit={handleUpdate} className="flex flex-col h-full space-y-8">
 
-        <div className="max-w-2xl backdrop-blur-xl bg-white/30 border border-white/20 rounded-2xl shadow-xl p-8 hover:scale-105 transition duration-300">
+          {/* Title */}
+          <div>
+            <label className="block mb-2 text-sm">
+              Title
+            </label>
+            <input
+              type="text"
+              required
+              value={task.title}
+              onChange={(e) =>
+                setTask({ ...task, title: e.target.value })
+              }
+              className="w-full px-4 py-3 rounded-xl bg-white/50 border border-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--clr-primary-a0)]"
+            />
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block mb-2 text-sm">
+              Description
+            </label>
+            <textarea
+              rows={6}
+              required
+              value={task.description}
+              onChange={(e) =>
+                setTask({ ...task, description: e.target.value })
+              }
+              className="w-full px-4 py-3 rounded-xl bg-white/50 border border-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--clr-primary-a0)]"
+            />
+          </div>
+
+          {/* Status & Priority */}
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+
+            <div>
+              <label className="block mb-2 text-sm">
+                Status
+              </label>
+              <select
+                value={task.status}
+                onChange={(e) =>
+                  setTask({ ...task, status: e.target.value as any })
+                }
+                className="w-full px-4 py-3 text-black border rounded-xl bg-white/70 border-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--clr-primary-a0)]"
+              >
+                <option value="pending">Pending</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block mb-2 text-sm">
+                Priority
+              </label>
+              <select
+                value={task.priority}
+                onChange={(e) =>
+                  setTask({ ...task, priority: e.target.value as any })
+                }
+                className="w-full px-4 py-3 text-black border rounded-xl bg-white/70 border-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--clr-primary-a0)]"
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+
+          </div>
+
+          {/* Due Date */}
+          <div>
+            <label className="block mb-2 text-sm">
+              Due Date
+            </label>
+            <input
+              type="date"
+              value={task.due_date || ""}
+              onChange={(e) =>
+                setTask({ ...task, due_date: e.target.value })
+              }
+              className="w-full px-4 py-3 text-black border rounded-xl bg-white/50 border-white/30"
+            />
+          </div>
 
           {error && (
-            <div className="text-sm text-[#b13535] bg-[#e29d9d]/20 p-3 rounded-lg mb-6">
+            <div className="text-sm text-[#b13535] bg-[#e29d9d]/20 p-3 rounded-lg">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleUpdate} className="space-y-6 text-white">
+          {/* Buttons stick to bottom */}
+          <div className="flex justify-end gap-4 pt-4 mt-auto">
 
-            {/* Title */}
-            <div>
-              <label className="block text-sm mb-2">
-                Title
-              </label>
-              <input
-                type="text"
-                required
-                value={task.title}
-                onChange={(e) =>
-                  setTask({ ...task, title: e.target.value })
-                }
-                className="w-full px-4 py-2 rounded-xl bg-white/50 border border-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--clr-primary-a0)]"
-              />
-            </div>
+            <button
+              type="button"
+              onClick={() => navigate("/tasks")}
+              className="px-6 py-3 text-white transition rounded-xl bg-white/20 hover:bg-white/30"
+            >
+              Cancel
+            </button>
 
-            {/* Description */}
-            <div>
-              <label className="block text-sm mb-2">
-                Description
-              </label>
-              <textarea
-                rows={4}
-                required
-                value={task.description}
-                onChange={(e) =>
-                  setTask({ ...task, description: e.target.value })
-                }
-                className="w-full px-4 py-2 rounded-xl bg-white/50 border border-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--clr-primary-a0)]"
-              />
-            </div>
+            <button
+              type="submit"
+              className="px-8 py-3 rounded-xl bg-[var(--clr-primary-a0)] hover:bg-[var(--clr-primary-a10)] text-white font-semibold transition"
+            >
+              Update Task
+            </button>
 
-            {/* Status + Priority */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          </div>
 
-              {/* STATUS */}
-              <div>
-                <label className="block text-sm mb-2">
-                  Status
-                </label>
-                <select
-                  value={task.status}
-                  onChange={(e) =>
-                    setTask({ ...task, status: e.target.value as any })
-                  }
-                  className="w-full px-4 py-2 rounded-xl bg-white/70 text-black border border-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--clr-primary-a0)]"
-                >
-                  <option className="text-black" value="pending">
-                    Pending
-                  </option>
-                  <option className="text-black" value="in_progress">
-                    In Progress
-                  </option>
-                  <option className="text-black" value="completed">
-                    Completed
-                  </option>
-                </select>
-              </div>
+        </form>
 
-              {/* PRIORITY */}
-              <div>
-                <label className="block text-sm mb-2">
-                  Priority
-                </label>
-                <select
-                  value={task.priority}
-                  onChange={(e) =>
-                    setTask({ ...task, priority: e.target.value as any })
-                  }
-                  className="w-full px-4 py-2 rounded-xl bg-white/70 text-black border border-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--clr-primary-a0)]"
-                >
-                  <option className="text-black" value="low">
-                    Low
-                  </option>
-                  <option className="text-black" value="medium">
-                    Medium
-                  </option>
-                  <option className="text-black" value="high">
-                    High
-                  </option>
-                </select>
-              </div>
-
-            </div>
-
-            {/* Actions */}
-            <div className="flex justify-end gap-4">
-
-              <button
-                type="button"
-                onClick={() => navigate("/tasks")}
-                className="px-6 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white transition"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="submit"
-                className="px-6 py-2 rounded-xl bg-[var(--clr-primary-a0)] hover:bg-[var(--clr-primary-a10)] text-white font-semibold transition"
-              >
-                Update Task
-              </button>
-
-            </div>
-
-          </form>
-
-        </div>
       </div>
+
     </div>
   );
 };
