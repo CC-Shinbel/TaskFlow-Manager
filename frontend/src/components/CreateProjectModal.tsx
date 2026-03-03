@@ -1,69 +1,146 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { projectService } from "../services/projectService";
 
 interface Props {
-    onCreated: () => void;
-    onClose: () => void;
+  isOpen: boolean;
+  onCreated: () => void;
+  onClose: () => void;
 }
 
-const CreateProjectModal = ({ onCreated, onClose }: Props) => {
-    const [name, setName] = useState("");
-    const [description, setDescription] = useState("");
+const CreateProjectModal = ({
+  isOpen,
+  onCreated,
+  onClose,
+}: Props) => {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
 
-    const handleSubmit = async () => {
-        if (!name.trim()) return;
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-        await projectService.createProject({
-            name,
-            description
-        });
-
-        onCreated();
-        onClose();
+  // Close on ESC
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
     };
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md">
+    if (isOpen) {
+      window.addEventListener("keydown", handleEsc);
+    }
 
-            <div className="backdrop-blur-xl bg-white/30 border border-white/20 rounded-3xl shadow-2xl p-8 w-[400px] text-white">
+    return () => {
+      window.removeEventListener("keydown", handleEsc);
+    };
+  }, [isOpen, onClose]);
 
-                <h2 className="mb-6 text-2xl font-semibold">
-                    Create Project
-                </h2>
+  if (!isOpen) return null;
 
-                <input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Project Name"
-                    className="w-full px-4 py-2 mb-4 border rounded-xl bg-white/50 border-white/30"
-                />
+  const handleSubmit = async () => {
+    if (!name.trim()) {
+      setError("Project name is required.");
+      return;
+    }
 
-                <textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Description"
-                    className="w-full px-4 py-2 mb-6 border rounded-xl bg-white/50 border-white/30"
-                />
+    try {
+      setLoading(true);
+      setError(null);
 
-                <div className="flex justify-end gap-4">
-                    <button
-                        onClick={onClose}
-                        className="px-4 py-2 bg-white/20 rounded-xl"
-                    >
-                        Cancel
-                    </button>
+      await projectService.createProject({
+        name,
+        description,
+      });
 
-                    <button
-                        onClick={handleSubmit}
-                        className="px-6 py-2 bg-[var(--clr-primary-a0)] rounded-xl"
-                    >
-                        Create
-                    </button>
-                </div>
+      setName("");
+      setDescription("");
 
-            </div>
+      onCreated();
+      onClose();
+    } catch (err: any) {
+      setError(
+        err.response?.data?.message || "Failed to create project."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBackdropClick = (
+    e: React.MouseEvent<HTMLDivElement>
+  ) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md"
+      onClick={handleBackdropClick}
+    >
+      <div className="w-full max-w-lg p-8 text-white border shadow-2xl backdrop-blur-xl bg-white/30 border-white/20 rounded-3xl">
+
+        <h2 className="mb-6 text-2xl font-semibold">
+          Create Project
+        </h2>
+
+        {error && (
+          <div className="mb-4 text-sm text-[#b13535] bg-[#e29d9d]/20 p-3 rounded-lg border border-[#b13535]/30">
+            {error}
+          </div>
+        )}
+
+        <div className="space-y-5">
+
+          <div>
+            <label className="block mb-2 text-sm">
+              Project Name
+            </label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Enter project name"
+              className="w-full px-4 py-3 border rounded-xl bg-white/50 border-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--clr-primary-a0)]"
+            />
+          </div>
+
+          <div>
+            <label className="block mb-2 text-sm">
+              Description (optional)
+            </label>
+            <textarea
+              rows={4}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Enter project description"
+              className="w-full px-4 py-3 border rounded-xl bg-white/50 border-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--clr-primary-a0)]"
+            />
+          </div>
+
         </div>
-    );
+
+        <div className="flex justify-end gap-4 mt-8">
+
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="px-6 py-3 text-white transition rounded-xl bg-white/20 hover:bg-white/30 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="px-8 py-3 rounded-xl bg-[var(--clr-primary-a0)] hover:bg-[var(--clr-primary-a10)] text-white font-semibold transition disabled:opacity-50"
+          >
+            {loading ? "Creating..." : "Create Project"}
+          </button>
+
+        </div>
+
+      </div>
+    </div>
+  );
 };
 
 export default CreateProjectModal;

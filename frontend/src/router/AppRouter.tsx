@@ -3,7 +3,6 @@ import LoginPage from "../pages/LoginPage.tsx";
 import RegisterPage from "../pages/RegisterPage.tsx";
 import DashboardPage from "../pages/DashboardPage.tsx";
 import TaskListPage from "../pages/TaskListPage.tsx";
-import CreateTaskPage from "../pages/CreateTaskPage.tsx";
 import EditTaskPage from "../pages/EditTaskPage.tsx";
 import ProtectedRoute from "../components/ProtectedRoute.tsx";
 import AppLayout from "../layouts/AppLayout";
@@ -33,17 +32,6 @@ const AppRouter = () => {
             <ProtectedRoute>
               <AppLayout>
                 <TaskListPage />
-              </AppLayout>
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/tasks/create"
-          element={
-            <ProtectedRoute>
-              <AppLayout>
-                <CreateTaskPage />
               </AppLayout>
             </ProtectedRoute>
           }

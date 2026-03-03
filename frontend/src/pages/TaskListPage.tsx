@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../hooks/UseAuth";
 import axios from "axios";
+import CreateTaskModal from "../components/CreateTaskModal";
 
 interface Task {
   id: number;
@@ -28,6 +29,8 @@ const TaskListPage = () => {
   const [status, setStatus] = useState("");
   const [priority, setPriority] = useState("");
   const [sort, setSort] = useState("asc");
+
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   // =========================
   // FETCH TASKS
@@ -78,7 +81,7 @@ const TaskListPage = () => {
 
     try {
       await api.delete(`/tasks/${id}`);
-      fetchTasks(); // refresh list
+      fetchTasks();
     } catch (err) {
       if (axios.isAxiosError(err)) {
         setError(
@@ -91,29 +94,34 @@ const TaskListPage = () => {
   };
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-[var(--clr-primary-a10)] via-[var(--clr-primary-a20)] to-[var(--clr-primary-a40)] overflow-hidden">
-
-      {/* Background Shapes */}
-      <div className="absolute w-[500px] h-[500px] bg-white/10 rounded-full blur-3xl -top-20 -left-20"></div>
-      <div className="absolute w-[600px] h-[600px] bg-blue-300/20 rounded-full blur-3xl bottom-[-150px] right-[-150px]"></div>
+    <div className="relative min-h-full overflow-hidden">
 
       <div className="relative z-10 p-10">
 
         {/* HEADER */}
-        <div className="flex justify-between items-center mb-8 text-white">
-          <h1 className="text-3xl font-bold">Tasks</h1>
-          <p className="text-sm">
-            Viewing as: {user?.role}
-          </p>
+        <div className="flex items-center justify-between mb-8 text-white">
+          <div>
+            <h1 className="text-3xl font-bold">Tasks</h1>
+            <p className="text-sm opacity-70">
+              Viewing as: {user?.role}
+            </p>
+          </div>
+
+          <button
+            onClick={() => setIsCreateOpen(true)}
+            className="px-6 py-3 rounded-xl bg-[var(--clr-primary-a0)] hover:bg-[var(--clr-primary-a10)] text-white font-semibold transition"
+          >
+            + Create Task
+          </button>
         </div>
 
         {/* FILTER BAR */}
-        <div className="backdrop-blur-xl bg-white/30 border border-white/20 rounded-2xl shadow-xl p-6 mb-8 grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 gap-4 p-6 mb-8 border shadow-xl backdrop-blur-xl bg-white/30 border-white/20 rounded-2xl md:grid-cols-5">
 
           <input
             type="text"
             placeholder="Search..."
-            className="px-4 py-2 rounded-xl bg-white/50 border border-white/30 focus:outline-none"
+            className="px-4 py-2 border rounded-xl bg-white/50 border-white/30 focus:outline-none"
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -122,7 +130,7 @@ const TaskListPage = () => {
           />
 
           <select
-            className="px-4 py-2 rounded-xl bg-white/50 border border-white/30"
+            className="px-4 py-2 text-black border rounded-xl bg-white/50 border-white/30"
             value={status}
             onChange={(e) => {
               setStatus(e.target.value);
@@ -136,7 +144,7 @@ const TaskListPage = () => {
           </select>
 
           <select
-            className="px-4 py-2 rounded-xl bg-white/50 border border-white/30"
+            className="px-4 py-2 text-black border rounded-xl bg-white/50 border-white/30"
             value={priority}
             onChange={(e) => {
               setPriority(e.target.value);
@@ -150,7 +158,7 @@ const TaskListPage = () => {
           </select>
 
           <select
-            className="px-4 py-2 rounded-xl bg-white/50 border border-white/30"
+            className="px-4 py-2 text-black border rounded-xl bg-white/50 border-white/30"
             value={sort}
             onChange={(e) => {
               setSort(e.target.value);
@@ -169,7 +177,7 @@ const TaskListPage = () => {
               setSort("asc");
               setPage(1);
             }}
-            className="px-4 py-2 rounded-xl bg-white/20 text-white hover:bg-white/30 transition"
+            className="px-4 py-2 text-white transition rounded-xl bg-white/20 hover:bg-white/30"
           >
             Reset
           </button>
@@ -182,28 +190,28 @@ const TaskListPage = () => {
 
         {/* ERROR */}
         {error && (
-          <p className="text-red-300 mb-4">{error}</p>
+          <p className="mb-4 text-red-300">{error}</p>
         )}
 
-        {/* EMPTY STATE */}
+        {/* EMPTY */}
         {!loading && tasks.length === 0 && (
-          <div className="text-white text-center mt-10">
+          <div className="mt-10 text-center text-white">
             No tasks found.
           </div>
         )}
 
         {/* TASK GRID */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {tasks.map((task) => (
             <div
               key={task.id}
-              className="backdrop-blur-xl bg-white/30 border border-white/20 rounded-2xl shadow-xl p-6 text-white hover:scale-105 transition duration-300"
+              className="p-6 text-white transition duration-300 border shadow-xl backdrop-blur-xl bg-white/30 border-white/20 rounded-2xl hover:scale-105"
             >
-              <h3 className="text-lg font-semibold mb-2">
+              <h3 className="mb-2 text-lg font-semibold">
                 {task.title}
               </h3>
 
-              <p className="text-sm opacity-80 mb-3">
+              <p className="mb-3 text-sm opacity-80">
                 {task.description}
               </p>
 
@@ -216,20 +224,19 @@ const TaskListPage = () => {
                 Due: {task.due_date}
               </div>
 
-              {/* ACTION BUTTONS */}
-              <div className="mt-4 flex gap-3">
+              <div className="flex gap-3 mt-4">
                 <button
                   onClick={() =>
                     navigate(`/tasks/${task.id}/edit`)
                   }
-                  className="px-3 py-1 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm"
+                  className="px-3 py-1 text-sm bg-blue-500 rounded-lg hover:bg-blue-600"
                 >
                   Edit
                 </button>
 
                 <button
                   onClick={() => handleDelete(task.id)}
-                  className="px-3 py-1 bg-red-500 hover:bg-red-600 rounded-lg text-sm"
+                  className="px-3 py-1 text-sm bg-red-500 rounded-lg hover:bg-red-600"
                 >
                   Delete
                 </button>
@@ -262,6 +269,14 @@ const TaskListPage = () => {
         </div>
 
       </div>
+
+      {/* CREATE TASK MODAL */}
+      <CreateTaskModal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        onCreated={fetchTasks}
+      />
+
     </div>
   );
 };

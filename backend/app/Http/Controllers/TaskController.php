@@ -17,7 +17,7 @@ class TaskController extends Controller
     {
         $user = $request->user();
 
-        $tasks = Task::where(function ($query) use ($user) {
+        $query = Task::where(function ($query) use ($user) {
 
             // Personal tasks
             $query->whereNull('project_id')
@@ -25,9 +25,27 @@ class TaskController extends Controller
 
             // OR project tasks where user is member
             $query->orWhereHas('project.users', function ($q) use ($user) {
-                $q->where('user_id', $user->id);
+                $q->where('project_user.user_id', $user->id);
             });
-        })
+        });
+
+        // 🔹 FILTER BY PROJECT
+        if ($request->filled('project_id')) {
+            $query->where('project_id', $request->project_id);
+        }
+
+        // 🔹 OPTIONAL STATUS FILTER
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        // 🔹 OPTIONAL SORTING
+        if ($request->filled('sort_by')) {
+            $direction = $request->get('direction', 'asc');
+            $query->orderBy($request->sort_by, $direction);
+        }
+
+        $tasks = $query
             ->with([
                 'project:id,name',
                 'creator:id,name',
@@ -55,9 +73,10 @@ class TaskController extends Controller
 
             $project = Project::findOrFail($data['project_id']);
 
+            // 🔥 FIXED: explicitly reference pivot column
             $role = $project->users()
-                ->where('user_id', $user->id)
-                ->value('role');
+                ->where('project_user.user_id', $user->id)
+                ->value('project_user.role');
 
             if (!in_array($role, ['owner', 'co_owner', 'collaborator'])) {
                 abort(403, 'Not allowed to create tasks in this project.');
@@ -152,7 +171,7 @@ class TaskController extends Controller
         // Project task → user must belong to project
         $isMember = $task->project
             ->users()
-            ->where('user_id', $user->id)
+            ->where('project_user.user_id', $user->id)
             ->exists();
 
         if (!$isMember) {
