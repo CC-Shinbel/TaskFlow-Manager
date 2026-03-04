@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../hooks/UseAuth";
 import axios from "axios";
 import CreateTaskModal from "../components/CreateTaskModal";
+import EditTaskModal from "../components/EditTaskModal";
 
 interface Task {
   id: number;
@@ -16,7 +16,6 @@ interface Task {
 
 const TaskListPage = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,6 +30,7 @@ const TaskListPage = () => {
   const [sort, setSort] = useState("asc");
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editTaskId, setEditTaskId] = useState<number | null>(null);
 
   // =========================
   // FETCH TASKS
@@ -225,10 +225,10 @@ const TaskListPage = () => {
               </div>
 
               <div className="flex gap-3 mt-4">
+
+                {/* EDIT MODAL TRIGGER */}
                 <button
-                  onClick={() =>
-                    navigate(`/tasks/${task.id}/edit`)
-                  }
+                  onClick={() => setEditTaskId(task.id)}
                   className="px-3 py-1 text-sm bg-blue-500 rounded-lg hover:bg-blue-600"
                 >
                   Edit
@@ -240,6 +240,7 @@ const TaskListPage = () => {
                 >
                   Delete
                 </button>
+
               </div>
             </div>
           ))}
@@ -275,6 +276,14 @@ const TaskListPage = () => {
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         onCreated={fetchTasks}
+      />
+
+      {/* EDIT TASK MODAL */}
+      <EditTaskModal
+        taskId={editTaskId}
+        isOpen={editTaskId !== null}
+        onClose={() => setEditTaskId(null)}
+        onUpdated={fetchTasks}
       />
 
     </div>

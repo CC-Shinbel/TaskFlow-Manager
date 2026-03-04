@@ -29,36 +29,36 @@ const InviteUserForm = ({ projectId, onInvited }: Props) => {
         }
     };
 
-    return (
-        <div className="flex flex-col gap-4 mt-6 md:flex-row">
+return (
+  <div className="grid grid-cols-1 gap-3 mt-6 sm:grid-cols-[1fr_140px_auto]">
 
-            <input
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Invite by email"
-                className="flex-1 px-4 py-2 text-black border rounded-xl bg-white/50 border-white/30"
-            />
+    <input
+      value={email}
+      onChange={(e) => setEmail(e.target.value)}
+      placeholder="Invite by email"
+      className="h-10 px-4 text-sm text-black border rounded-xl bg-white/70 border-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--clr-primary-a0)]"
+    />
 
-            <select
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="px-4 py-2 text-black border rounded-xl bg-white/50 border-white/30"
-            >
-                <option value="member">Member</option>
-                <option value="collaborator">Collaborator</option>
-                <option value="co_owner">Co-owner</option>
-            </select>
+    <select
+      value={role}
+      onChange={(e) => setRole(e.target.value)}
+      className="h-10 px-3 text-sm text-black border rounded-xl bg-white/70 border-white/30"
+    >
+      <option value="member">Member</option>
+      <option value="collaborator">Collaborator</option>
+      <option value="co_owner">Co-owner</option>
+    </select>
 
-            <button
-                onClick={handleInvite}
-                disabled={loading}
-                className="px-6 py-2 rounded-xl bg-[var(--clr-primary-a0)] hover:bg-[var(--clr-primary-a10)] text-white transition"
-            >
-                {loading ? "Inviting..." : "Invite"}
-            </button>
+    <button
+      onClick={handleInvite}
+      disabled={loading}
+      className="h-10 px-5 text-sm font-semibold text-white transition rounded-xl bg-[var(--clr-primary-a0)] hover:bg-[var(--clr-primary-a10)] disabled:opacity-50"
+    >
+      {loading ? "Inviting..." : "Invite"}
+    </button>
 
-        </div>
-    );
+  </div>
+);
 };
 
 export default InviteUserForm;

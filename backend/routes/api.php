@@ -36,6 +36,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('projects/{project}/members', [ProjectMemberController::class, 'store']);
     Route::delete('projects/{project}/members/{user}', [ProjectMemberController::class, 'destroy']);
 
+    //NOTE: Newly added project routes
+    Route::post('/projects/{project}/invite', [ProjectController::class, 'inviteUser']);
+    Route::put('/projects/{project}/members/{user}/role', [ProjectController::class, 'changeRole']);
+    Route::delete('/projects/{project}/members/{user}', [ProjectController::class, 'removeUser']);
+
     //NOTE: Task routes
     Route::post('tasks/{task}/assign', [TaskAssignmentController::class, 'store']);
     Route::delete('tasks/{task}/assign/{user}', [TaskAssignmentController::class, 'destroy']);

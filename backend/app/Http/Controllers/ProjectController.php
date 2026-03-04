@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Project;
+use App\Models\User;
 use Illuminate\Http\Request;
 
 class ProjectController extends Controller
@@ -82,5 +83,74 @@ class ProjectController extends Controller
         if (!$project->users()->where('user_id', $user->id)->exists()) {
             abort(403, 'Unauthorized project access.');
         }
+    }
+
+    public function inviteUser(Request $request, Project $project)
+    {
+        $this->authorizeMembership($request->user(), $project);
+
+        $request->validate([
+            'email' => 'required|email',
+            'role' => 'required|in:member,collaborator,co_owner'
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user) {
+            return response()->json([
+                'status' => false,
+                'message' => 'User with this email does not exist.'
+            ], 404);
+        }
+
+        // Prevent duplicate membership
+        if ($project->users()->where('user_id', $user->id)->exists()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'User already belongs to this project.'
+            ], 400);
+        }
+
+        $project->users()->attach($user->id, [
+            'role' => $request->role
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'User invited successfully'
+        ]);
+    }
+    public function changeRole(Request $request, Project $project, User $user)
+    {
+        $this->authorizeMembership($request->user(), $project);
+
+        $request->validate([
+            'role' => 'required|in:member,collaborator,co_owner'
+        ]);
+
+        $project->users()->updateExistingPivot($user->id, [
+            'role' => $request->role
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Role updated successfully'
+        ]);
+    }
+
+    public function removeUser(Request $request, Project $project, User $user)
+    {
+        $this->authorizeMembership($request->user(), $project);
+
+        if ($user->id === $project->owner_id) {
+            abort(403, 'Cannot remove project owner.');
+        }
+
+        $project->users()->detach($user->id);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'User removed from project'
+        ]);
     }
 }

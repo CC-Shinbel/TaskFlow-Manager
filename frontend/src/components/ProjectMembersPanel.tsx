@@ -59,7 +59,7 @@ const ProjectMembersPanel = ({
         <div className="p-6 mt-8 text-white border shadow-xl backdrop-blur-xl bg-white/30 border-white/20 rounded-2xl">
 
             <h3 className="mb-4 text-lg font-semibold">
-                Members
+                Management
             </h3>
 
             <div className="mb-6 space-y-3">
