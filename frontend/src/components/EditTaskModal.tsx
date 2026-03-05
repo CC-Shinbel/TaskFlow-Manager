@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
 
+interface Member {
+  id: number;
+  name: string;
+}
+
 interface Task {
   id: number;
   title: string;
@@ -8,6 +13,8 @@ interface Task {
   status: "pending" | "in_progress" | "completed";
   priority: "low" | "medium" | "high";
   due_date?: string;
+  project_id?: number;
+  assignees?: Member[];
 }
 
 interface Props {
@@ -18,49 +25,91 @@ interface Props {
 }
 
 const EditTaskModal = ({ taskId, isOpen, onClose, onUpdated }: Props) => {
+
   const [task, setTask] = useState<Task | null>(null);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [assignees, setAssignees] = useState<number[]>([]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch task
+  // =========================
+  // LOAD TASK
+  // =========================
   useEffect(() => {
+
     if (!taskId || !isOpen) return;
 
     const fetchTask = async () => {
+
       try {
+
         setLoading(true);
+
         const response = await api.get(`/tasks/${taskId}`);
-        setTask(response.data.data);
+        const taskData = response.data.data;
+
+        setTask(taskData);
+
+        setAssignees(
+          taskData.assignees?.map((u: Member) => u.id) || []
+        );
+
+        // Load project members
+        if (taskData.project_id) {
+          const project = await api.get(`/projects/${taskData.project_id}`);
+          setMembers(project.data.data.members || []);
+        }
+
       } catch (err: any) {
+
         setError(
           err.response?.data?.message || "Failed to load task."
         );
+
       } finally {
         setLoading(false);
       }
+
     };
 
     fetchTask();
+
   }, [taskId, isOpen]);
 
+  if (!isOpen) return null;
+
   const handleUpdate = async (e: React.FormEvent) => {
+
     e.preventDefault();
+
     if (!task) return;
 
     try {
+
       setError(null);
-      await api.put(`/tasks/${task.id}`, task);
+
+      await api.put(`/tasks/${task.id}`, {
+        title: task.title,
+        description: task.description,
+        status: task.status,
+        priority: task.priority,
+        due_date: task.due_date,
+        assignees
+      });
 
       onUpdated();
       onClose();
+
     } catch (err: any) {
+
       setError(
         err.response?.data?.message || "Update failed."
       );
-    }
-  };
 
-  if (!isOpen) return null;
+    }
+
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md">
@@ -76,19 +125,17 @@ const EditTaskModal = ({ taskId, isOpen, onClose, onUpdated }: Props) => {
         )}
 
         {!loading && task && (
-          <form
-            onSubmit={handleUpdate}
-            className="flex flex-col space-y-8"
-          >
+
+          <form onSubmit={handleUpdate} className="flex flex-col space-y-8">
 
             {/* Title */}
             <div>
               <label className="block mb-2 text-sm">
                 Title
               </label>
+
               <input
                 type="text"
-                required
                 value={task.title}
                 onChange={(e) =>
                   setTask({ ...task, title: e.target.value })
@@ -102,9 +149,9 @@ const EditTaskModal = ({ taskId, isOpen, onClose, onUpdated }: Props) => {
               <label className="block mb-2 text-sm">
                 Description
               </label>
+
               <textarea
                 rows={5}
-                required
                 value={task.description}
                 onChange={(e) =>
                   setTask({
@@ -123,6 +170,7 @@ const EditTaskModal = ({ taskId, isOpen, onClose, onUpdated }: Props) => {
                 <label className="block mb-2 text-sm">
                   Status
                 </label>
+
                 <select
                   value={task.status}
                   onChange={(e) =>
@@ -137,12 +185,14 @@ const EditTaskModal = ({ taskId, isOpen, onClose, onUpdated }: Props) => {
                   <option value="in_progress">In Progress</option>
                   <option value="completed">Completed</option>
                 </select>
+
               </div>
 
               <div>
                 <label className="block mb-2 text-sm">
                   Priority
                 </label>
+
                 <select
                   value={task.priority}
                   onChange={(e) =>
@@ -157,6 +207,7 @@ const EditTaskModal = ({ taskId, isOpen, onClose, onUpdated }: Props) => {
                   <option value="medium">Medium</option>
                   <option value="high">High</option>
                 </select>
+
               </div>
 
             </div>
@@ -166,6 +217,7 @@ const EditTaskModal = ({ taskId, isOpen, onClose, onUpdated }: Props) => {
               <label className="block mb-2 text-sm">
                 Due Date
               </label>
+
               <input
                 type="date"
                 value={task.due_date || ""}
@@ -177,6 +229,39 @@ const EditTaskModal = ({ taskId, isOpen, onClose, onUpdated }: Props) => {
                 }
                 className="w-full px-4 py-3 text-black border rounded-xl bg-white/50 border-white/30"
               />
+            </div>
+
+            {/* Assign Members */}
+            <div>
+
+              <label className="block mb-2 text-sm">
+                Assigned Members
+              </label>
+
+              <select
+                multiple
+                value={assignees.map(String)}
+                onChange={(e) =>
+                  setAssignees(
+                    Array.from(
+                      e.target.selectedOptions,
+                      option => Number(option.value)
+                    )
+                  )
+                }
+                className="w-full px-4 py-3 text-black border rounded-xl bg-white/70"
+              >
+                {members.map(member => (
+                  <option key={member.id} value={member.id}>
+                    {member.name}
+                  </option>
+                ))}
+              </select>
+
+              <p className="mt-1 text-xs opacity-70">
+                Hold CTRL / CMD to select multiple users
+              </p>
+
             </div>
 
             {error && (
@@ -206,6 +291,7 @@ const EditTaskModal = ({ taskId, isOpen, onClose, onUpdated }: Props) => {
             </div>
 
           </form>
+
         )}
 
       </div>

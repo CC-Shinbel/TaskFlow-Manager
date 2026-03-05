@@ -36,7 +36,7 @@ const CommentsSection = ({ projectId }: { projectId: number }) => {
     };
 
     return (
-        <div className="mt-8">
+        <div>
 
             <h3 className="mb-4 text-xl font-semibold">
                 Comments

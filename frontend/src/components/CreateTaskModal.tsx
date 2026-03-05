@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
 
+interface Member {
+  id: number;
+  name: string;
+}
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
@@ -14,31 +19,32 @@ const CreateTaskModal = ({
   onCreated,
   projectId = null,
 }: Props) => {
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState("pending");
   const [priority, setPriority] = useState("medium");
   const [dueDate, setDueDate] = useState("");
 
+  const [members, setMembers] = useState<Member[]>([]);
+  const [assignees, setAssignees] = useState<number[]>([]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Close on ESC
+  // Load project members
   useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+    if (!projectId || !isOpen) return;
+
+    const loadMembers = async () => {
+      const response = await api.get(`/projects/${projectId}`);
+      setMembers(response.data.data.members || []);
     };
 
-    if (isOpen) {
-      window.addEventListener("keydown", handleEsc);
-    }
+    loadMembers();
+  }, [projectId, isOpen]);
 
-    return () => {
-      window.removeEventListener("keydown", handleEsc);
-    };
-  }, [isOpen, onClose]);
-
-  // Reset form when modal opens
+  // Reset form
   useEffect(() => {
     if (isOpen) {
       setTitle("");
@@ -46,6 +52,7 @@ const CreateTaskModal = ({
       setStatus("pending");
       setPriority("medium");
       setDueDate("");
+      setAssignees([]);
       setError(null);
     }
   }, [isOpen]);
@@ -55,11 +62,6 @@ const CreateTaskModal = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
-    if (!title.trim()) {
-      setError("Title is required.");
-      return;
-    }
 
     try {
       setLoading(true);
@@ -71,121 +73,131 @@ const CreateTaskModal = ({
         priority,
         due_date: dueDate,
         project_id: projectId,
+        assignees
       });
 
       onCreated();
       onClose();
+
     } catch (err: any) {
-      setError(
-        err.response?.data?.message || "Failed to create task."
-      );
+      setError(err.response?.data?.message || "Failed to create task.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleBackdropClick = (
-    e: React.MouseEvent<HTMLDivElement>
-  ) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md"
-      onClick={handleBackdropClick}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md">
+
       <div className="w-full max-w-2xl p-8 text-white border shadow-2xl backdrop-blur-xl bg-white/30 border-white/20 rounded-3xl">
 
         <h2 className="mb-6 text-2xl font-semibold">
-          {projectId ? "Create Project Task" : "Create Task"}
+          Create Project Task
         </h2>
-
-        {error && (
-          <div className="mb-4 text-sm text-[#b13535] bg-[#e29d9d]/20 p-3 rounded-lg border border-[#b13535]/30">
-            {error}
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
 
+          {/* Title */}
           <div>
             <label className="block mb-2 text-sm">Title</label>
             <input
-              type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-white/50 border border-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--clr-primary-a0)]"
+              className="w-full px-4 py-3 border rounded-xl bg-white/50 border-white/30"
             />
           </div>
 
+          {/* Description */}
           <div>
             <label className="block mb-2 text-sm">Description</label>
             <textarea
               rows={4}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-white/50 border border-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--clr-primary-a0)]"
+              className="w-full px-4 py-3 border rounded-xl bg-white/50 border-white/30"
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-
+          {/* Assign Members */}
+          {projectId && (
             <div>
-              <label className="block mb-2 text-sm">Status</label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="w-full px-4 py-3 text-black border rounded-xl bg-white/70 border-white/30"
-              >
-                <option value="pending">Pending</option>
-                <option value="in_progress">In Progress</option>
-                <option value="completed">Completed</option>
-              </select>
-            </div>
+              <label className="block mb-2 text-sm">
+                Assign Members
+              </label>
 
-            <div>
-              <label className="block mb-2 text-sm">Priority</label>
               <select
-                value={priority}
-                onChange={(e) => setPriority(e.target.value)}
-                className="w-full px-4 py-3 text-black border rounded-xl bg-white/70 border-white/30"
+                multiple
+                value={assignees.map(String)}
+                onChange={(e) =>
+                  setAssignees(
+                    Array.from(
+                      e.target.selectedOptions,
+                      option => Number(option.value)
+                    )
+                  )
+                }
+                className="w-full px-4 py-3 text-black border rounded-xl bg-white/70"
               >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
+                {members.map(member => (
+                  <option key={member.id} value={member.id}>
+                    {member.name}
+                  </option>
+                ))}
               </select>
+
+              <p className="mt-1 text-xs opacity-70">
+                Hold CTRL / CMD to select multiple users
+              </p>
             </div>
+          )}
+
+          {/* Status + Priority */}
+          <div className="grid grid-cols-2 gap-6">
+
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className="px-4 py-3 text-black border rounded-xl bg-white/70"
+            >
+              <option value="pending">Pending</option>
+              <option value="in_progress">In Progress</option>
+              <option value="completed">Completed</option>
+            </select>
+
+            <select
+              value={priority}
+              onChange={(e) => setPriority(e.target.value)}
+              className="px-4 py-3 text-black border rounded-xl bg-white/70"
+            >
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
 
           </div>
 
-          <div>
-            <label className="block mb-2 text-sm">Due Date</label>
-            <input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="w-full px-4 py-3 text-black border rounded-xl bg-white/50 border-white/30"
-            />
-          </div>
+          {/* Due Date */}
+          <input
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            className="w-full px-4 py-3 text-black border rounded-xl bg-white/50"
+          />
 
-          <div className="flex justify-end gap-4 pt-4">
+          {/* Buttons */}
+          <div className="flex justify-end gap-4">
 
             <button
               type="button"
               onClick={onClose}
-              disabled={loading}
-              className="px-6 py-3 text-white transition rounded-xl bg-white/20 hover:bg-white/30 disabled:opacity-50"
+              className="px-6 py-3 rounded-xl bg-white/20"
             >
               Cancel
             </button>
 
             <button
               type="submit"
-              disabled={loading}
-              className="px-8 py-3 rounded-xl bg-[var(--clr-primary-a0)] hover:bg-[var(--clr-primary-a10)] text-white font-semibold transition disabled:opacity-50"
+              className="px-8 py-3 rounded-xl bg-[var(--clr-primary-a0)]"
             >
               {loading ? "Creating..." : "Create Task"}
             </button>
@@ -193,7 +205,6 @@ const CreateTaskModal = ({
           </div>
 
         </form>
-
       </div>
     </div>
   );

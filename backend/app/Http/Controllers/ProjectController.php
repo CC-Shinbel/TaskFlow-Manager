@@ -8,7 +8,9 @@ use Illuminate\Http\Request;
 
 class ProjectController extends Controller
 {
-    // List projects user belongs to
+    /**
+     * List projects user belongs to
+     */
     public function index(Request $request)
     {
         $user = $request->user();
@@ -24,7 +26,9 @@ class ProjectController extends Controller
         ]);
     }
 
-    // Create project
+    /**
+     * Create project
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -40,8 +44,10 @@ class ProjectController extends Controller
             'owner_id' => $user->id,
         ]);
 
-        // Attach owner in pivot
-        $project->users()->attach($user->id, ['role' => 'owner']);
+        // Attach owner to pivot table
+        $project->users()->attach($user->id, [
+            'role' => 'owner'
+        ]);
 
         return response()->json([
             'status' => true,
@@ -50,19 +56,47 @@ class ProjectController extends Controller
         ], 201);
     }
 
-    // Show project details
+    /**
+     * Show project details (FIXED)
+     */
     public function show(Request $request, Project $project)
     {
-        $this->authorizeMembership($request->user(), $project);
+        $user = $request->user();
+
+        $this->authorizeMembership($user, $project);
+
+        $project->load('users:id,name,email');
+
+        // Format members for frontend
+        $members = $project->users->map(function ($member) {
+            return [
+                'id' => $member->id,
+                'name' => $member->name,
+                'role' => $member->pivot->role
+            ];
+        });
+
+        // Get current user's role in project
+        $currentUserRole = $project->users()
+            ->where('users.id', $user->id)
+            ->value('project_user.role');
 
         return response()->json([
             'status' => true,
             'message' => 'Project retrieved',
-            'data' => $project->load('users:id,name,email')
+            'data' => [
+                'id' => $project->id,
+                'name' => $project->name,
+                'description' => $project->description,
+                'members' => $members,
+                'current_user_role' => $currentUserRole
+            ]
         ]);
     }
 
-    // Delete project (only real owner)
+    /**
+     * Delete project (owner only)
+     */
     public function destroy(Request $request, Project $project)
     {
         if ($project->owner_id !== $request->user()->id) {
@@ -78,13 +112,9 @@ class ProjectController extends Controller
         ]);
     }
 
-    private function authorizeMembership($user, Project $project)
-    {
-        if (!$project->users()->where('user_id', $user->id)->exists()) {
-            abort(403, 'Unauthorized project access.');
-        }
-    }
-
+    /**
+     * Invite user to project
+     */
     public function inviteUser(Request $request, Project $project)
     {
         $this->authorizeMembership($request->user(), $project);
@@ -103,7 +133,6 @@ class ProjectController extends Controller
             ], 404);
         }
 
-        // Prevent duplicate membership
         if ($project->users()->where('user_id', $user->id)->exists()) {
             return response()->json([
                 'status' => false,
@@ -120,6 +149,10 @@ class ProjectController extends Controller
             'message' => 'User invited successfully'
         ]);
     }
+
+    /**
+     * Change member role
+     */
     public function changeRole(Request $request, Project $project, User $user)
     {
         $this->authorizeMembership($request->user(), $project);
@@ -138,6 +171,9 @@ class ProjectController extends Controller
         ]);
     }
 
+    /**
+     * Remove user from project
+     */
     public function removeUser(Request $request, Project $project, User $user)
     {
         $this->authorizeMembership($request->user(), $project);
@@ -152,5 +188,15 @@ class ProjectController extends Controller
             'status' => true,
             'message' => 'User removed from project'
         ]);
+    }
+
+    /**
+     * Ensure user belongs to project
+     */
+    private function authorizeMembership($user, Project $project)
+    {
+        if (!$project->users()->where('user_id', $user->id)->exists()) {
+            abort(403, 'Unauthorized project access.');
+        }
     }
 }
