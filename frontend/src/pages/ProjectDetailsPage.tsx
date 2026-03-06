@@ -1,12 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { projectService } from "../services/projectService";
 import { taskService } from "../services/taskService";
 
 import CommentsSection from "../components/CommentsSection";
 import CreateTaskModal from "../components/CreateTaskModal";
 import ProjectMembersPanel from "../components/ProjectMembersPanel";
-import EditTaskModal from "../components/EditTaskModal";
 
 interface Project {
   id: number;
@@ -34,6 +33,7 @@ interface Member {
 
 const ProjectDetailsPage = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
 
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -42,8 +42,6 @@ const ProjectDetailsPage = () => {
 
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isMembersPanelOpen, setIsMembersPanelOpen] = useState(false);
-
-  const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
 
   // =========================
   // LOAD PROJECT
@@ -132,7 +130,7 @@ const ProjectDetailsPage = () => {
 
                   <div
                     key={task.id}
-                    onClick={() => setEditingTaskId(task.id)}
+                    onClick={() => navigate(`/tasks/${task.id}`)}
                     className="p-4 transition cursor-pointer bg-white/10 rounded-xl hover:bg-white/20"
                   >
 
@@ -148,15 +146,12 @@ const ProjectDetailsPage = () => {
 
                     </div>
 
-                    {/* Assigned Users */}
                     {task.assignees && task.assignees.length > 0 && (
                       <div className="mt-2 text-xs opacity-80">
-
                         Assigned to:{" "}
                         {task.assignees
                           .map(user => user.name)
                           .join(", ")}
-
                       </div>
                     )}
 
@@ -172,9 +167,7 @@ const ProjectDetailsPage = () => {
           {/* COMMENTS */}
           <div className="flex flex-col flex-1 p-8 text-white border shadow-xl backdrop-blur-xl bg-white/30 border-white/20 rounded-2xl">
 
-            <div className="flex-1">
-              <CommentsSection projectId={project.id} />
-            </div>
+            <CommentsSection projectId={project.id} />
 
           </div>
 
@@ -183,7 +176,6 @@ const ProjectDetailsPage = () => {
         {/* RIGHT SIDE */}
         <div className="flex flex-col h-full">
 
-          {/* MEMBERS CARD */}
           <div className="flex flex-col flex-1 p-6 text-white border shadow-xl backdrop-blur-xl bg-white/30 border-white/20 rounded-2xl">
 
             <div className="flex items-center justify-between mb-4">
@@ -203,21 +195,15 @@ const ProjectDetailsPage = () => {
 
             <div className="space-y-2">
 
-              {members.length === 0 ? (
-                <p className="text-sm opacity-70">
-                  No members yet.
-                </p>
-              ) : (
-                members.map((member) => (
-                  <div
-                    key={member.id}
-                    className="flex justify-between p-3 text-sm bg-white/10 rounded-xl"
-                  >
-                    <span>{member.name}</span>
-                    <span className="opacity-70">{member.role}</span>
-                  </div>
-                ))
-              )}
+              {members.map((member) => (
+                <div
+                  key={member.id}
+                  className="flex justify-between p-3 text-sm bg-white/10 rounded-xl"
+                >
+                  <span>{member.name}</span>
+                  <span className="opacity-70">{member.role}</span>
+                </div>
+              ))}
 
             </div>
 
@@ -227,7 +213,6 @@ const ProjectDetailsPage = () => {
 
       </div>
 
-      {/* CREATE TASK MODAL */}
       <CreateTaskModal
         isOpen={isTaskModalOpen}
         projectId={project.id}
@@ -238,18 +223,6 @@ const ProjectDetailsPage = () => {
         }}
       />
 
-      {/* EDIT TASK MODAL */}
-      <EditTaskModal
-        taskId={editingTaskId}
-        isOpen={editingTaskId !== null}
-        onClose={() => setEditingTaskId(null)}
-        onUpdated={() => {
-          setEditingTaskId(null);
-          loadTasks();
-        }}
-      />
-
-      {/* MEMBERS MANAGEMENT PANEL */}
       <ProjectMembersPanel
         isOpen={isMembersPanelOpen}
         onClose={() => setIsMembersPanelOpen(false)}

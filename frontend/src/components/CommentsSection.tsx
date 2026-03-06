@@ -1,86 +1,105 @@
 import { useEffect, useState } from "react";
-import { commentService } from "../services/commentService";
+import api from "../services/api";
 
 interface Comment {
-    id: string;
-    content: string;
-    user: {
-        id: number;
-        name: string;
-    };
+  id: number;
+  content: string;
+  user: {
+    id: number;
+    name: string;
+  };
 }
 
-const CommentsSection = ({ projectId }: { projectId: number }) => {
-    const [comments, setComments] = useState<Comment[]>([]);
-    const [content, setContent] = useState("");
+interface Props {
+  projectId: number;
+  taskId?: number;
+}
 
-    const loadComments = async () => {
-        const response = await commentService.getComments(projectId);
-        setComments(response.data.data);
-    };
+const CommentsSection = ({ projectId, taskId }: Props) => {
 
-    useEffect(() => {
-        loadComments();
-    }, []);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [content, setContent] = useState("");
 
-    const handleSubmit = async () => {
-        if (!content.trim()) return;
+  const loadComments = async () => {
 
-        await commentService.createComment({
-            project_id: projectId,
-            content,
-        });
+    const response = await api.get("/comments", {
+      params: {
+        project_id: projectId,
+        task_id: taskId
+      }
+    });
 
-        setContent("");
-        loadComments();
-    };
+    setComments(response.data.data);
 
-    return (
-        <div>
+  };
 
-            <h3 className="mb-4 text-xl font-semibold">
-                Comments
-            </h3>
+  useEffect(() => {
+    loadComments();
+  }, [projectId, taskId]);
 
-            <div className="mb-4 space-y-4 overflow-y-auto max-h-96">
+  const handleSubmit = async () => {
 
-                {comments.map(comment => (
-                    <div key={comment.id}
-                        className="p-4 bg-white/20 rounded-xl">
+    if (!content.trim()) return;
 
-                        <p className="text-sm font-semibold">
-                            {comment.user.name}
-                        </p>
+    await api.post("/comments", {
+      project_id: projectId,
+      task_id: taskId,
+      content
+    });
 
-                        <p className="text-sm opacity-90">
-                            {comment.content}
-                        </p>
+    setContent("");
+    loadComments();
 
-                    </div>
-                ))}
+  };
 
-            </div>
+  return (
+    <div className="flex flex-col h-full">
 
-            <div className="flex gap-4">
+      <h3 className="mb-4 text-xl font-semibold">
+        Comments
+      </h3>
 
-                <input
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    placeholder="Write a comment..."
-                    className="flex-1 px-4 py-2 border rounded-xl bg-white/50 border-white/30 focus:outline-none"
-                />
+      <div className="flex-1 mb-4 space-y-4 overflow-y-auto">
 
-                <button
-                    onClick={handleSubmit}
-                    className="px-6 py-2 rounded-xl bg-[var(--clr-primary-a0)] hover:bg-[var(--clr-primary-a10)] text-white font-semibold transition"
-                >
-                    Send
-                </button>
+        {comments.map(comment => (
+          <div
+            key={comment.id}
+            className="p-4 bg-white/20 rounded-xl"
+          >
 
-            </div>
+            <p className="text-sm font-semibold">
+              {comment.user.name}
+            </p>
 
-        </div>
-    );
+            <p className="text-sm opacity-90">
+              {comment.content}
+            </p>
+
+          </div>
+        ))}
+
+      </div>
+
+      <div className="flex gap-4">
+
+        <input
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          placeholder="Write a comment..."
+          className="flex-1 px-4 py-2 border rounded-xl bg-white/50 border-white/30"
+        />
+
+        <button
+          onClick={handleSubmit}
+          className="px-6 py-2 rounded-xl bg-[var(--clr-primary-a0)] hover:bg-[var(--clr-primary-a10)] text-white font-semibold transition"
+        >
+          Send
+        </button>
+
+      </div>
+
+    </div>
+  );
 };
 
 export default CommentsSection;

@@ -61,20 +61,28 @@ const CreateTaskModal = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
 
     try {
       setLoading(true);
 
-      await api.post("/tasks", {
+      // 1️⃣ Create task
+      const response = await api.post("/tasks", {
         title,
         description,
         status,
         priority,
         due_date: dueDate,
-        project_id: projectId,
-        assignees
+        project_id: projectId
       });
+
+      const task = response.data.data;
+
+      // 2️⃣ Assign selected users
+      for (const userId of assignees) {
+        await api.post(`/tasks/${task.id}/assign`, {
+          user_id: userId
+        });
+      }
 
       onCreated();
       onClose();
@@ -94,6 +102,12 @@ const CreateTaskModal = ({
         <h2 className="mb-6 text-2xl font-semibold">
           Create Project Task
         </h2>
+
+        {error && (
+          <div className="mb-4 text-sm text-red-400">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
 

@@ -11,13 +11,13 @@ use App\Notifications\NewCommentNotification;
 class CommentController extends Controller
 {
     /**
-     * List comments for a project or task
+     * List comments
      */
     public function index(Request $request)
     {
         $request->validate([
             'project_id' => 'required|exists:projects,id',
-            'task_id'    => 'nullable|exists:tasks,id'
+            'task_id' => 'nullable|exists:tasks,id'
         ]);
 
         $user = $request->user();
@@ -48,17 +48,18 @@ class CommentController extends Controller
     {
         $request->validate([
             'project_id' => 'required|exists:projects,id',
-            'task_id'    => 'nullable|exists:tasks,id',
-            'content'    => 'required|string'
+            'task_id' => 'nullable|exists:tasks,id',
+            'content' => 'required|string'
         ]);
 
         $user = $request->user();
+
         $project = Project::findOrFail($request->project_id);
 
         $this->authorizeProjectMembership($user, $project);
 
-        // If task_id provided, ensure task belongs to project
         if ($request->task_id) {
+
             $task = Task::findOrFail($request->task_id);
 
             if ($task->project_id !== $project->id) {
@@ -68,11 +69,11 @@ class CommentController extends Controller
 
         $comment = Comment::create([
             'project_id' => $project->id,
-            'task_id'    => $request->task_id,
-            'user_id'    => $user->id,
-            'content'    => $request->content
+            'task_id' => $request->task_id,
+            'user_id' => $user->id,
+            'content' => $request->content
         ]);
-        // Notify project owners/co-owners/collaborators
+
         $projectUsers = $project->users()
             ->wherePivotIn('role', ['owner', 'co_owner', 'collaborator'])
             ->get();
@@ -80,6 +81,7 @@ class CommentController extends Controller
         foreach ($projectUsers as $projectUser) {
 
             if ($projectUser->id !== $user->id) {
+
                 $projectUser->notify(
                     new NewCommentNotification($comment)
                 );
@@ -93,12 +95,15 @@ class CommentController extends Controller
         ], 201);
     }
 
+    /**
+     * Delete comment
+     */
     public function destroy(Request $request, Comment $comment)
     {
         $user = $request->user();
+
         $project = $comment->project;
 
-        // Ensure membership
         $membership = $project->users()
             ->where('user_id', $user->id)
             ->first();
@@ -109,18 +114,13 @@ class CommentController extends Controller
 
         $role = $membership->pivot->role;
 
-        // Author can delete
-        if ($comment->user_id === $user->id) {
-            $comment->delete();
-            return response()->json([
-                'status' => true,
-                'message' => 'Comment deleted'
-            ]);
-        }
+        if (
+            $comment->user_id === $user->id ||
+            in_array($role, ['owner', 'co_owner'])
+        ) {
 
-        // Owner or co-owner can delete
-        if (in_array($role, ['owner', 'co_owner'])) {
             $comment->delete();
+
             return response()->json([
                 'status' => true,
                 'message' => 'Comment deleted'
@@ -131,7 +131,7 @@ class CommentController extends Controller
     }
 
     /**
-     * Ensure user belongs to project
+     * Ensure membership
      */
     private function authorizeProjectMembership($user, $project)
     {

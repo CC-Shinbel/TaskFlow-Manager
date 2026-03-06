@@ -7,7 +7,6 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use App\Notifications\TaskAssignedNotification;
 
-
 class TaskAssignmentController extends Controller
 {
     /**
@@ -23,7 +22,7 @@ class TaskAssignmentController extends Controller
 
         $this->authorizeAssignment($user, $task);
 
-        if ($task->assignees()->where('user_id', $request->user_id)->exists()) {
+        if ($task->assignees()->where('users.id', $request->user_id)->exists()) {
             return response()->json([
                 'status' => false,
                 'message' => 'User already assigned'
@@ -33,12 +32,15 @@ class TaskAssignmentController extends Controller
         $task->assignees()->attach($request->user_id, [
             'assigned_by' => $user->id
         ]);
-        //NOTE: Notify the assigned user
-        $assignedUser = User::find($request->user_id);
 
-        $assignedUser->notify(
-            new TaskAssignedNotification($task, $user)
-        );
+        $assignedUser = User::findOrFail($request->user_id);
+
+        if ($assignedUser->id !== $user->id) {
+            $assignedUser->notify(
+                new TaskAssignedNotification($task, $user)
+            );
+        }
+
         return response()->json([
             'status' => true,
             'message' => 'User assigned to task'
@@ -52,12 +54,10 @@ class TaskAssignmentController extends Controller
     {
         $user = $request->user();
 
-        // Allow self-removal
         if ($user->id !== $userToRemove->id) {
             $this->authorizeAssignment($user, $task);
         }
 
-        // Prevent removing creator from personal task
         if (is_null($task->project_id) && $task->created_by === $userToRemove->id) {
             abort(403, 'Cannot remove creator from personal task.');
         }
@@ -71,23 +71,23 @@ class TaskAssignmentController extends Controller
     }
 
     /**
-     * Core permission check
+     * Authorization
      */
     private function authorizeAssignment($user, Task $task)
     {
-        // Personal task
         if (is_null($task->project_id)) {
+
             if ($task->created_by !== $user->id) {
-                abort(403, 'Only creator can assign users to personal task.');
+                abort(403, 'Only creator can assign users.');
             }
+
             return;
         }
 
-        // Project task
         $role = $task->project
             ->users()
-            ->where('user_id', $user->id)
-            ->value('role');
+            ->where('project_user.user_id', $user->id)
+            ->value('project_user.role');
 
         if (!in_array($role, ['owner', 'co_owner', 'collaborator'])) {
             abort(403, 'Insufficient project permissions.');

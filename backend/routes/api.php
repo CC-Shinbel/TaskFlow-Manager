@@ -13,45 +13,63 @@ use App\Http\Controllers\CommentController;
 |--------------------------------------------------------------------------
 | API Routes
 |--------------------------------------------------------------------------
-| All routes here are prefixed automatically with /api
-| Example: /api/login
-|--------------------------------------------------------------------------
 */
 
-// Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
-// Protected routes
 Route::middleware('auth:sanctum')->group(function () {
-    //NOTE: Route for logout
+
     Route::post('/logout', [AuthController::class, 'logout']);
 
-    //NOTE: Dashboard route
     Route::get('/dashboard', [DashboardController::class, 'index']);
 
-    //NOTE: Project routes
+    /*
+    |--------------------------------------------------------------------------
+    | Projects
+    |--------------------------------------------------------------------------
+    */
+
     Route::apiResource('projects', ProjectController::class)
         ->only(['index', 'store', 'show', 'destroy']);
-    Route::post('projects/{project}/members', [ProjectMemberController::class, 'store']);
-    Route::delete('projects/{project}/members/{user}', [ProjectMemberController::class, 'destroy']);
 
-    //NOTE: Newly added project routes
     Route::post('/projects/{project}/invite', [ProjectController::class, 'inviteUser']);
     Route::put('/projects/{project}/members/{user}/role', [ProjectController::class, 'changeRole']);
     Route::delete('/projects/{project}/members/{user}', [ProjectController::class, 'removeUser']);
 
-    //NOTE: Task routes
-    Route::post('tasks/{task}/assign', [TaskAssignmentController::class, 'store']);
-    Route::delete('tasks/{task}/assign/{user}', [TaskAssignmentController::class, 'destroy']);
+    /*
+    |--------------------------------------------------------------------------
+    | Tasks
+    |--------------------------------------------------------------------------
+    */
+
     Route::apiResource('tasks', TaskController::class);
 
-    //NOTE: Comment routes
-    Route::get('comments', [CommentController::class, 'index']);
-    Route::post('comments', [CommentController::class, 'store']);
-    Route::delete('comments/{comment}', [CommentController::class, 'destroy']);
+    /*
+    |--------------------------------------------------------------------------
+    | Task Assignments
+    |--------------------------------------------------------------------------
+    */
 
-    //NOTE: Get current user details
+    Route::post('/tasks/{task}/assign', [TaskAssignmentController::class, 'store']);
+    Route::delete('/tasks/{task}/assign/{user}', [TaskAssignmentController::class, 'destroy']);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Comments
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/comments', [CommentController::class, 'index']);
+    Route::post('/comments', [CommentController::class, 'store']);
+    Route::delete('/comments/{comment}', [CommentController::class, 'destroy']);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Current User
+    |--------------------------------------------------------------------------
+    */
+
     Route::get('/user', [AuthController::class, 'me']);
 });
 

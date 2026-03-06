@@ -29,13 +29,11 @@ const EditTaskModal = ({ taskId, isOpen, onClose, onUpdated }: Props) => {
   const [task, setTask] = useState<Task | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [assignees, setAssignees] = useState<number[]>([]);
+  const [originalAssignees, setOriginalAssignees] = useState<number[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // =========================
-  // LOAD TASK
-  // =========================
   useEffect(() => {
 
     if (!taskId || !isOpen) return;
@@ -51,22 +49,19 @@ const EditTaskModal = ({ taskId, isOpen, onClose, onUpdated }: Props) => {
 
         setTask(taskData);
 
-        setAssignees(
-          taskData.assignees?.map((u: Member) => u.id) || []
-        );
+        const ids =
+          taskData.assignees?.map((u: Member) => u.id) || [];
 
-        // Load project members
+        setAssignees(ids);
+        setOriginalAssignees(ids);
+
         if (taskData.project_id) {
           const project = await api.get(`/projects/${taskData.project_id}`);
           setMembers(project.data.data.members || []);
         }
 
       } catch (err: any) {
-
-        setError(
-          err.response?.data?.message || "Failed to load task."
-        );
-
+        setError(err.response?.data?.message || "Failed to load task.");
       } finally {
         setLoading(false);
       }
@@ -87,26 +82,37 @@ const EditTaskModal = ({ taskId, isOpen, onClose, onUpdated }: Props) => {
 
     try {
 
-      setError(null);
-
       await api.put(`/tasks/${task.id}`, {
         title: task.title,
         description: task.description,
         status: task.status,
         priority: task.priority,
-        due_date: task.due_date,
-        assignees
+        due_date: task.due_date
       });
+
+      const removed = originalAssignees.filter(
+        id => !assignees.includes(id)
+      );
+
+      const added = assignees.filter(
+        id => !originalAssignees.includes(id)
+      );
+
+      for (const userId of removed) {
+        await api.delete(`/tasks/${task.id}/assign/${userId}`);
+      }
+
+      for (const userId of added) {
+        await api.post(`/tasks/${task.id}/assign`, {
+          user_id: userId
+        });
+      }
 
       onUpdated();
       onClose();
 
     } catch (err: any) {
-
-      setError(
-        err.response?.data?.message || "Update failed."
-      );
-
+      setError(err.response?.data?.message || "Update failed.");
     }
 
   };
@@ -128,162 +134,65 @@ const EditTaskModal = ({ taskId, isOpen, onClose, onUpdated }: Props) => {
 
           <form onSubmit={handleUpdate} className="flex flex-col space-y-8">
 
-            {/* Title */}
-            <div>
-              <label className="block mb-2 text-sm">
-                Title
-              </label>
+            <input
+              value={task.title}
+              onChange={(e) =>
+                setTask({ ...task, title: e.target.value })
+              }
+              className="w-full px-4 py-3 border rounded-xl bg-white/50 border-white/30"
+            />
 
-              <input
-                type="text"
-                value={task.title}
-                onChange={(e) =>
-                  setTask({ ...task, title: e.target.value })
-                }
-                className="w-full px-4 py-3 rounded-xl bg-white/50 border border-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--clr-primary-a0)]"
-              />
-            </div>
+            <textarea
+              rows={4}
+              value={task.description}
+              onChange={(e) =>
+                setTask({
+                  ...task,
+                  description: e.target.value
+                })
+              }
+              className="w-full px-4 py-3 border rounded-xl bg-white/50 border-white/30"
+            />
 
-            {/* Description */}
-            <div>
-              <label className="block mb-2 text-sm">
-                Description
-              </label>
-
-              <textarea
-                rows={5}
-                value={task.description}
-                onChange={(e) =>
-                  setTask({
-                    ...task,
-                    description: e.target.value
-                  })
-                }
-                className="w-full px-4 py-3 rounded-xl bg-white/50 border border-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--clr-primary-a0)]"
-              />
-            </div>
-
-            {/* Status + Priority */}
-            <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-
-              <div>
-                <label className="block mb-2 text-sm">
-                  Status
-                </label>
-
-                <select
-                  value={task.status}
-                  onChange={(e) =>
-                    setTask({
-                      ...task,
-                      status: e.target.value as any
-                    })
-                  }
-                  className="w-full px-4 py-3 text-black border rounded-xl bg-white/70 border-white/30"
-                >
-                  <option value="pending">Pending</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="completed">Completed</option>
-                </select>
-
-              </div>
-
-              <div>
-                <label className="block mb-2 text-sm">
-                  Priority
-                </label>
-
-                <select
-                  value={task.priority}
-                  onChange={(e) =>
-                    setTask({
-                      ...task,
-                      priority: e.target.value as any
-                    })
-                  }
-                  className="w-full px-4 py-3 text-black border rounded-xl bg-white/70 border-white/30"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-
-              </div>
-
-            </div>
-
-            {/* Due Date */}
-            <div>
-              <label className="block mb-2 text-sm">
-                Due Date
-              </label>
-
-              <input
-                type="date"
-                value={task.due_date || ""}
-                onChange={(e) =>
-                  setTask({
-                    ...task,
-                    due_date: e.target.value
-                  })
-                }
-                className="w-full px-4 py-3 text-black border rounded-xl bg-white/50 border-white/30"
-              />
-            </div>
-
-            {/* Assign Members */}
-            <div>
-
-              <label className="block mb-2 text-sm">
-                Assigned Members
-              </label>
-
-              <select
-                multiple
-                value={assignees.map(String)}
-                onChange={(e) =>
-                  setAssignees(
-                    Array.from(
-                      e.target.selectedOptions,
-                      option => Number(option.value)
-                    )
+            <select
+              multiple
+              value={assignees.map(String)}
+              onChange={(e) =>
+                setAssignees(
+                  Array.from(
+                    e.target.selectedOptions,
+                    option => Number(option.value)
                   )
-                }
-                className="w-full px-4 py-3 text-black border rounded-xl bg-white/70"
-              >
-                {members.map(member => (
-                  <option key={member.id} value={member.id}>
-                    {member.name}
-                  </option>
-                ))}
-              </select>
-
-              <p className="mt-1 text-xs opacity-70">
-                Hold CTRL / CMD to select multiple users
-              </p>
-
-            </div>
+                )
+              }
+              className="w-full px-4 py-3 text-black border rounded-xl bg-white/70"
+            >
+              {members.map(member => (
+                <option key={member.id} value={member.id}>
+                  {member.name}
+                </option>
+              ))}
+            </select>
 
             {error && (
-              <div className="text-sm text-[#b13535] bg-[#e29d9d]/20 p-3 rounded-lg">
+              <div className="text-red-400">
                 {error}
               </div>
             )}
 
-            {/* Buttons */}
-            <div className="flex justify-end gap-4 pt-4">
+            <div className="flex justify-end gap-4">
 
               <button
                 type="button"
                 onClick={onClose}
-                className="px-6 py-3 text-white transition rounded-xl bg-white/20 hover:bg-white/30"
+                className="px-6 py-3 rounded-xl bg-white/20"
               >
                 Cancel
               </button>
 
               <button
                 type="submit"
-                className="px-8 py-3 rounded-xl bg-[var(--clr-primary-a0)] hover:bg-[var(--clr-primary-a10)] text-white font-semibold transition"
+                className="px-8 py-3 rounded-xl bg-[var(--clr-primary-a0)]"
               >
                 Update Task
               </button>

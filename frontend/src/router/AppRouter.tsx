@@ -7,6 +7,7 @@ import ProtectedRoute from "../components/ProtectedRoute.tsx";
 import AppLayout from "../layouts/AppLayout";
 import ProjectsPage from "../pages/ProjectsPage.tsx";
 import ProjectDetailsPage from "../pages/ProjectDetailsPage.tsx";
+import TaskDetailsPage from "../pages/TaskDetailsPage.tsx";
 const AppRouter = () => {
   return (
     <BrowserRouter>
@@ -34,6 +35,16 @@ const AppRouter = () => {
               </AppLayout>
             </ProtectedRoute>
           }
+        />
+        <Route 
+          path="/tasks/:id" 
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <TaskDetailsPage />
+              </AppLayout>
+            </ProtectedRoute>
+          } 
         />
 
         <Route
