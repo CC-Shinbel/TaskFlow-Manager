@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Project;
 use App\Models\User;
+use App\Models\ProjectInvite;
 use Illuminate\Http\Request;
+use App\Notifications\ProjectInviteNotification;
 
 class ProjectController extends Controller
 {
@@ -44,7 +46,7 @@ class ProjectController extends Controller
             'owner_id' => $user->id,
         ]);
 
-        // Attach owner to pivot table
+        // Attach owner
         $project->users()->attach($user->id, [
             'role' => 'owner'
         ]);
@@ -57,7 +59,7 @@ class ProjectController extends Controller
     }
 
     /**
-     * Show project details (FIXED)
+     * Show project details
      */
     public function show(Request $request, Project $project)
     {
@@ -67,7 +69,6 @@ class ProjectController extends Controller
 
         $project->load('users:id,name,email');
 
-        // Format members for frontend
         $members = $project->users->map(function ($member) {
             return [
                 'id' => $member->id,
@@ -76,7 +77,6 @@ class ProjectController extends Controller
             ];
         });
 
-        // Get current user's role in project
         $currentUserRole = $project->users()
             ->where('users.id', $user->id)
             ->value('project_user.role');
@@ -95,7 +95,7 @@ class ProjectController extends Controller
     }
 
     /**
-     * Delete project (owner only)
+     * Delete project
      */
     public function destroy(Request $request, Project $project)
     {
@@ -113,7 +113,7 @@ class ProjectController extends Controller
     }
 
     /**
-     * Invite user to project
+     * Invite user to project (UPDATED)
      */
     public function inviteUser(Request $request, Project $project)
     {
@@ -133,6 +133,7 @@ class ProjectController extends Controller
             ], 404);
         }
 
+        // Prevent duplicate membership
         if ($project->users()->where('user_id', $user->id)->exists()) {
             return response()->json([
                 'status' => false,
@@ -140,13 +141,36 @@ class ProjectController extends Controller
             ], 400);
         }
 
-        $project->users()->attach($user->id, [
+        // Prevent duplicate invite
+        $existingInvite = ProjectInvite::where([
+            'project_id' => $project->id,
+            'user_id' => $user->id,
+            'status' => 'pending'
+        ])->first();
+
+        if ($existingInvite) {
+            return response()->json([
+                'status' => false,
+                'message' => 'User already has a pending invite.'
+            ], 400);
+        }
+
+        // Create invite request
+        $invite = ProjectInvite::create([
+            'project_id' => $project->id,
+            'user_id' => $user->id,
+            'invited_by' => $request->user()->id,
             'role' => $request->role
         ]);
 
+        // Send notification
+        $user->notify(
+            new ProjectInviteNotification($project, $request->user())
+        );
+
         return response()->json([
             'status' => true,
-            'message' => 'User invited successfully'
+            'message' => 'Project invite sent'
         ]);
     }
 
