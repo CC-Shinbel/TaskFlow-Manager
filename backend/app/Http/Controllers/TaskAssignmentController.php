@@ -4,13 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Models\Task;
 use App\Models\User;
+use App\Models\TaskAssignmentRequest;
 use Illuminate\Http\Request;
-use App\Notifications\TaskAssignedNotification;
+use App\Notifications\TaskAssignmentRequestNotification;
 
 class TaskAssignmentController extends Controller
 {
+
     /**
-     * Assign user to task
+     * Send task assignment request
      */
     public function store(Request $request, Task $task)
     {
@@ -22,28 +24,88 @@ class TaskAssignmentController extends Controller
 
         $this->authorizeAssignment($user, $task);
 
-        if ($task->assignees()->where('users.id', $request->user_id)->exists()) {
+        $targetUser = User::findOrFail($request->user_id);
+
+        // Prevent duplicate assignment
+        if ($task->assignees()->where('users.id', $targetUser->id)->exists()) {
             return response()->json([
                 'status' => false,
                 'message' => 'User already assigned'
             ], 422);
         }
 
-        $task->assignees()->attach($request->user_id, [
+        // Prevent duplicate request
+        $existingRequest = TaskAssignmentRequest::where([
+            'task_id' => $task->id,
+            'user_id' => $targetUser->id
+        ])->first();
+
+        if ($existingRequest) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Assignment request already exists'
+            ], 422);
+        }
+
+        // Create assignment request
+        TaskAssignmentRequest::create([
+            'task_id' => $task->id,
+            'user_id' => $targetUser->id,
             'assigned_by' => $user->id
         ]);
 
-        $assignedUser = User::findOrFail($request->user_id);
-
-        if ($assignedUser->id !== $user->id) {
-            $assignedUser->notify(
-                new TaskAssignedNotification($task, $user)
-            );
-        }
+        // Send notification
+        $targetUser->notify(
+            new TaskAssignmentRequestNotification($task, $user)
+        );
 
         return response()->json([
             'status' => true,
-            'message' => 'User assigned to task'
+            'message' => 'Assignment request sent'
+        ]);
+    }
+
+    /**
+     * Accept assignment
+     */
+    public function accept(Request $request, TaskAssignmentRequest $assignment)
+    {
+        $user = $request->user();
+
+        if ($assignment->user_id !== $user->id) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $task = Task::findOrFail($assignment->task_id);
+
+        $task->assignees()->attach($user->id, [
+            'assigned_by' => $assignment->assigned_by
+        ]);
+
+        $assignment->delete();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Task assignment accepted'
+        ]);
+    }
+
+    /**
+     * Decline assignment
+     */
+    public function decline(Request $request, TaskAssignmentRequest $assignment)
+    {
+        $user = $request->user();
+
+        if ($assignment->user_id !== $user->id) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $assignment->delete();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Task assignment declined'
         ]);
     }
 
@@ -71,7 +133,7 @@ class TaskAssignmentController extends Controller
     }
 
     /**
-     * Authorization
+     * Authorization logic
      */
     private function authorizeAssignment($user, Task $task)
     {
