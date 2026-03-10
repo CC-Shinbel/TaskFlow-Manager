@@ -1,11 +1,13 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Http\Request;
+
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProjectController;
-use App\Http\Controllers\ProjectMemberController;
+use App\Http\Controllers\ProjectInviteController;
 use App\Http\Controllers\TaskAssignmentController;
 use App\Http\Controllers\CommentController;
 
@@ -34,8 +36,19 @@ Route::middleware('auth:sanctum')->group(function () {
         ->only(['index', 'store', 'show', 'destroy']);
 
     Route::post('/projects/{project}/invite', [ProjectController::class, 'inviteUser']);
+
     Route::put('/projects/{project}/members/{user}/role', [ProjectController::class, 'changeRole']);
+
     Route::delete('/projects/{project}/members/{user}', [ProjectController::class, 'removeUser']);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Project Invites
+    |--------------------------------------------------------------------------
+    */
+
+    Route::post('/project-invites/{invite}/accept', [ProjectInviteController::class, 'accept']);
+    Route::post('/project-invites/{invite}/decline', [ProjectInviteController::class, 'decline']);
 
     /*
     |--------------------------------------------------------------------------
@@ -52,6 +65,10 @@ Route::middleware('auth:sanctum')->group(function () {
     */
 
     Route::post('/tasks/{task}/assign', [TaskAssignmentController::class, 'store']);
+
+    Route::post('/task-assignments/{assignment}/accept', [TaskAssignmentController::class, 'accept']);
+    Route::post('/task-assignments/{assignment}/decline', [TaskAssignmentController::class, 'decline']);
+
     Route::delete('/tasks/{task}/assign/{user}', [TaskAssignmentController::class, 'destroy']);
 
     /*
@@ -66,12 +83,36 @@ Route::middleware('auth:sanctum')->group(function () {
 
     /*
     |--------------------------------------------------------------------------
+    | Notifications
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/notifications', function (Request $request) {
+        return $request->user()->notifications;
+    });
+
+    Route::post('/notifications/{id}/read', function (Request $request, $id) {
+
+        $notification = $request->user()
+            ->notifications()
+            ->findOrFail($id);
+
+        $notification->markAsRead();
+
+        return response()->json([
+            'status' => true
+        ]);
+    });
+
+    /*
+    |--------------------------------------------------------------------------
     | Current User
     |--------------------------------------------------------------------------
     */
 
     Route::get('/user', [AuthController::class, 'me']);
 });
+
 
 Route::get('/health', function () {
     return response()->json([

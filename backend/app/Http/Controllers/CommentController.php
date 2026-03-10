@@ -58,6 +58,8 @@ class CommentController extends Controller
 
         $this->authorizeProjectMembership($user, $project);
 
+        $task = null;
+
         if ($request->task_id) {
 
             $task = Task::findOrFail($request->task_id);
@@ -74,17 +76,50 @@ class CommentController extends Controller
             'content' => $request->content
         ]);
 
-        $projectUsers = $project->users()
+        /*
+        |--------------------------------------------------------------------------
+        | NOTIFICATIONS
+        |--------------------------------------------------------------------------
+        */
+
+        $notifiedUsers = collect();
+
+        /**
+         * Notify task assignees
+         */
+        if ($task) {
+
+            $task->load('assignees');
+
+            foreach ($task->assignees as $assignee) {
+
+                if (!$notifiedUsers->contains($assignee->id)) {
+
+                    $assignee->notify(
+                        new NewCommentNotification($comment)
+                    );
+
+                    $notifiedUsers->push($assignee->id);
+                }
+            }
+        }
+
+        /**
+         * Notify project managers
+         */
+        $managers = $project->users()
             ->wherePivotIn('role', ['owner', 'co_owner', 'collaborator'])
             ->get();
 
-        foreach ($projectUsers as $projectUser) {
+        foreach ($managers as $manager) {
 
-            if ($projectUser->id !== $user->id) {
+            if (!$notifiedUsers->contains($manager->id)) {
 
-                $projectUser->notify(
+                $manager->notify(
                     new NewCommentNotification($comment)
                 );
+
+                $notifiedUsers->push($manager->id);
             }
         }
 
