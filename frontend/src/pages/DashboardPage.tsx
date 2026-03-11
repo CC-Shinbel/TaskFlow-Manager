@@ -22,7 +22,7 @@ interface Task {
 }
 
 const DashboardPage = () => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
 
   const [data, setData] = useState<DashboardData | null>(null);
   const [recentTasks, setRecentTasks] = useState<Task[]>([]);
@@ -59,9 +59,7 @@ const DashboardPage = () => {
 
   const handleError = (err: any) => {
     if (axios.isAxiosError(err)) {
-      setError(
-        err.response?.data?.message || "Dashboard error."
-      );
+      setError(err.response?.data?.message || "Dashboard error.");
     } else {
       setError("Unexpected error occurred.");
     }
@@ -76,26 +74,27 @@ const DashboardPage = () => {
   }
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-[var(--clr-primary-a10)] via-[var(--clr-primary-a20)] to-[var(--clr-primary-a40)] overflow-hidden flex flex-col">
+    <div className="relative min-h-screen flex flex-col overflow-hidden bg-gradient-to-br from-[var(--clr-primary-a10)] via-[var(--clr-primary-a20)] to-[var(--clr-primary-a40)]">
 
-      {/* Background Shapes */}
-      <div className="absolute w-[500px] h-[500px] bg-white/10 rounded-full blur-3xl -top-20 -left-20"></div>
-      <div className="absolute w-[600px] h-[600px] bg-blue-300/20 rounded-full blur-3xl bottom-[-150px] right-[-150px]"></div>
+      {/* Background Blobs */}
+      <div className="absolute z-0 w-[500px] h-[500px] bg-white/10 rounded-full blur-3xl -top-20 -left-20"></div>
+      <div className="absolute z-0 w-[600px] h-[600px] bg-blue-300/20 rounded-full blur-3xl bottom-[-150px] right-[-150px]"></div>
 
+      {/* Main Content */}
       <div className="relative z-10 flex flex-col flex-1">
 
-        {/* ERROR DISPLAY */}
+        {/* Error Display */}
         {error && (
-          <div className="mx-10 mt-6 backdrop-blur-xl bg-[#e29d9d]/20 border border-[#b13535]/30 rounded-xl p-4 text-[#b13535]">
+          <div className="mx-10 mt-6 p-4 rounded-xl backdrop-blur-xl bg-[#e29d9d]/20 border border-[#b13535]/30 text-[#b13535]">
             {error}
           </div>
         )}
 
-        {/* MAIN GRID */}
+        {/* Dashboard Grid */}
         <div className="grid flex-1 grid-cols-1 gap-8 p-10 xl:grid-cols-12">
 
-          {/* LEFT SIDE */}
-          <div className="flex flex-col h-full gap-8 xl:col-span-8">
+          {/* LEFT COLUMN */}
+          <div className="flex flex-col gap-8 xl:col-span-8">
 
             {/* Stats */}
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -105,15 +104,15 @@ const DashboardPage = () => {
               <StatCard title="Overdue" value={data?.overdue} color="text-[#e29d9d]" />
             </div>
 
-            {/* Recent Tasks expands */}
+            {/* Recent Tasks */}
             <div className="flex-1">
               <RecentTasksCard tasks={recentTasks} />
             </div>
 
           </div>
 
-          {/* RIGHT SIDE */}
-          <div className="flex flex-col h-full gap-8 xl:col-span-4">
+          {/* RIGHT COLUMN */}
+          <div className="flex flex-col gap-8 xl:col-span-4">
 
             <div className="flex-1">
               <FocusTimerCard />
@@ -128,6 +127,7 @@ const DashboardPage = () => {
         </div>
 
       </div>
+
     </div>
   );
 };

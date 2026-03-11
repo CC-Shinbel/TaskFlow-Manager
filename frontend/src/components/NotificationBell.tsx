@@ -1,24 +1,70 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import api from "../services/api";
+
+interface NotificationData {
+  type: string;
+  [key: string]: any;
+}
 
 interface Notification {
   id: string;
   read_at: string | null;
-  data: any;
+  data: NotificationData;
 }
 
 const NotificationBell = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState({ top: 0, right: 0 });
+
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const loadNotifications = async () => {
-    const response = await api.get("/notifications");
-    setNotifications(response.data);
+    try {
+      const response = await api.get("/notifications");
+      setNotifications(response.data);
+    } catch (err) {
+      console.error("Failed to load notifications", err);
+    }
   };
 
   useEffect(() => {
     loadNotifications();
+
+    const interval = setInterval(loadNotifications, 30000);
+    return () => clearInterval(interval);
   }, []);
+
+  // Close when clicking outside
+  useEffect(() => {
+    const handleClick = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        !buttonRef.current?.contains(event.target as Node)
+      ) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const toggleDropdown = () => {
+    if (!buttonRef.current) return;
+
+    const rect = buttonRef.current.getBoundingClientRect();
+
+    setPosition({
+      top: rect.bottom + 10,
+      right: window.innerWidth - rect.right
+    });
+
+    setOpen(!open);
+  };
 
   const markAsRead = async (id: string) => {
     await api.post(`/notifications/${id}/read`);
@@ -48,11 +94,11 @@ const NotificationBell = () => {
   const unreadCount = notifications.filter(n => !n.read_at).length;
 
   return (
-    <div className="relative">
-
+    <>
       {/* Bell Button */}
       <button
-        onClick={() => setOpen(!open)}
+        ref={buttonRef}
+        onClick={toggleDropdown}
         className="relative p-2 text-white transition rounded-full hover:bg-white/20"
       >
         🔔
@@ -65,149 +111,155 @@ const NotificationBell = () => {
       </button>
 
       {/* Dropdown */}
-      {open && (
-        <div className="absolute right-0 z-50 w-[360px] mt-4 p-4 border shadow-xl backdrop-blur-xl bg-white/30 border-white/20 rounded-2xl">
+      {open &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            style={{
+              position: "fixed",
+              top: position.top,
+              right: position.right,
+              zIndex: 999999
+            }}
+            className="w-[360px] p-4 border shadow-xl backdrop-blur-xl bg-white/30 border-white/20 rounded-2xl"
+          >
+            <h3 className="mb-4 text-lg font-semibold text-white">
+              Notifications
+            </h3>
 
-          <h3 className="mb-4 text-lg font-semibold text-white">
-            Notifications
-          </h3>
+            {notifications.length === 0 ? (
+              <p className="text-sm text-white opacity-70">
+                No notifications
+              </p>
+            ) : (
+              <div className="space-y-3 max-h-[420px] overflow-y-auto">
 
-          {notifications.length === 0 ? (
-            <p className="text-sm text-white opacity-70">
-              No notifications
-            </p>
-          ) : (
-            <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                {notifications.map(notification => {
+                  const data = notification.data;
 
-              {notifications.map(notification => {
+                  return (
+                    <div
+                      key={notification.id}
+                      className={`p-4 rounded-xl bg-white/10 text-sm text-white transition ${
+                        notification.read_at ? "opacity-70" : ""
+                      }`}
+                    >
 
-                const data = notification.data;
+                      {/* PROJECT INVITE */}
+                      {data.type === "project_invite" && (
+                        <>
+                          <p>
+                            <span className="font-semibold">
+                              {data.invited_by_name || "Someone"}
+                            </span>{" "}
+                            invited you to{" "}
+                            <span className="font-semibold">
+                              {data.project_name || "a project"}
+                            </span>
+                          </p>
 
-                return (
-                  <div
-                    key={notification.id}
-                    className={`p-4 rounded-xl bg-white/10 text-sm text-white ${
-                      notification.read_at ? "opacity-70" : ""
-                    }`}
-                  >
+                          <div className="flex gap-2 mt-3">
+                            <button
+                              onClick={() => acceptInvite(data.invite_id)}
+                              className="px-3 py-1 text-xs font-semibold rounded-lg bg-[var(--clr-primary-a0)] hover:bg-[var(--clr-primary-a10)]"
+                            >
+                              Accept
+                            </button>
 
-                    {/* Project Invite */}
-                    {data.type === "project_invite" && (
-                      <>
+                            <button
+                              onClick={() => declineInvite(data.invite_id)}
+                              className="px-3 py-1 text-xs rounded-lg bg-white/20 hover:bg-white/30"
+                            >
+                              Decline
+                            </button>
+                          </div>
+                        </>
+                      )}
+
+                      {/* TASK ASSIGNMENT */}
+                      {data.type === "task_assignment" && (
+                        <>
+                          <p>
+                            <span className="font-semibold">
+                              {data.assigned_by_name || "Someone"}
+                            </span>{" "}
+                            assigned you to{" "}
+                            <span className="font-semibold">
+                              {data.task_title || "a task"}
+                            </span>
+                          </p>
+
+                          <div className="flex gap-2 mt-3">
+                            <button
+                              onClick={() => acceptAssignment(data.request_id)}
+                              className="px-3 py-1 text-xs font-semibold rounded-lg bg-[var(--clr-primary-a0)] hover:bg-[var(--clr-primary-a10)]"
+                            >
+                              Accept
+                            </button>
+
+                            <button
+                              onClick={() => declineAssignment(data.request_id)}
+                              className="px-3 py-1 text-xs rounded-lg bg-white/20 hover:bg-white/30"
+                            >
+                              Decline
+                            </button>
+                          </div>
+                        </>
+                      )}
+
+                      {/* COMMENT NOTIFICATION */}
+                      {data.type === "new_comment" && (
                         <p>
                           <span className="font-semibold">
-                            {data.invited_by_name}
+                            {data.user_name || "Someone"}
                           </span>{" "}
-                          invited you to{" "}
-                          <span className="font-semibold">
-                            {data.project_name}
-                          </span>
+                          commented{" "}
+                          {data.task_id ? "on a task" : "on the project"}
                         </p>
+                      )}
 
-                        <div className="flex gap-2 mt-3">
-
-                          <button
-                            onClick={() => acceptInvite(data.invite_id)}
-                            className="px-3 py-1 text-xs font-semibold transition rounded-lg bg-[var(--clr-primary-a0)] hover:bg-[var(--clr-primary-a10)]"
-                          >
-                            Accept
-                          </button>
-
-                          <button
-                            onClick={() => declineInvite(data.invite_id)}
-                            className="px-3 py-1 text-xs transition rounded-lg bg-white/20 hover:bg-white/30"
-                          >
-                            Decline
-                          </button>
-
-                        </div>
-                      </>
-                    )}
-
-                    {/* Task Assignment */}
-                    {data.type === "task_assignment" && (
-                      <>
+                      {/* DEADLINE REMINDER */}
+                      {data.type === "task_deadline_reminder" && (
                         <p>
+                          Task{" "}
                           <span className="font-semibold">
-                            {data.assigned_by_name}
+                            {data.task_title || "a task"}
                           </span>{" "}
-                          assigned you to{" "}
-                          <span className="font-semibold">
-                            {data.task_title}
-                          </span>
+                          is due tomorrow
                         </p>
+                      )}
 
-                        <div className="flex gap-2 mt-3">
+                      {/* OVERDUE */}
+                      {data.type === "task_overdue" && (
+                        <p className="text-red-300">
+                          Task{" "}
+                          <span className="font-semibold">
+                            {data.task_title || "a task"}
+                          </span>{" "}
+                          is overdue
+                        </p>
+                      )}
 
-                          <button
-                            onClick={() => acceptAssignment(data.request_id)}
-                            className="px-3 py-1 text-xs font-semibold transition rounded-lg bg-[var(--clr-primary-a0)] hover:bg-[var(--clr-primary-a10)]"
-                          >
-                            Accept
-                          </button>
+                      {/* MARK AS READ */}
+                      {!notification.read_at && (
+                        <button
+                          onClick={() => markAsRead(notification.id)}
+                          className="block mt-3 text-xs opacity-70 hover:opacity-100"
+                        >
+                          Mark as read
+                        </button>
+                      )}
 
-                          <button
-                            onClick={() => declineAssignment(data.request_id)}
-                            className="px-3 py-1 text-xs transition rounded-lg bg-white/20 hover:bg-white/30"
-                          >
-                            Decline
-                          </button>
+                    </div>
+                  );
+                })}
 
-                        </div>
-                      </>
-                    )}
-
-                    {/* Comment Notification */}
-                    {data.type === "task_comment" && (
-                      <p>
-                        New comment on{" "}
-                        <span className="font-semibold">
-                          {data.task_title}
-                        </span>
-                      </p>
-                    )}
-
-                    {/* Deadline Reminder */}
-                    {data.type === "task_deadline_reminder" && (
-                      <p>
-                        Task{" "}
-                        <span className="font-semibold">
-                          {data.task_title}
-                        </span>{" "}
-                        is due tomorrow
-                      </p>
-                    )}
-
-                    {/* Overdue */}
-                    {data.type === "task_overdue" && (
-                      <p className="text-red-300">
-                        Task{" "}
-                        <span className="font-semibold">
-                          {data.task_title}
-                        </span>{" "}
-                        is overdue
-                      </p>
-                    )}
-
-                    {!notification.read_at && (
-                      <button
-                        onClick={() => markAsRead(notification.id)}
-                        className="block mt-3 text-xs opacity-70 hover:opacity-100"
-                      >
-                        Mark as read
-                      </button>
-                    )}
-
-                  </div>
-                );
-              })}
-
-            </div>
-          )}
-
-        </div>
-      )}
-    </div>
+              </div>
+            )}
+          </div>,
+          document.body
+        )}
+    </>
   );
 };
 
