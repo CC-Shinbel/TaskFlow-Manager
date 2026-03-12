@@ -11,32 +11,27 @@ class TaskAssignmentRequestNotification extends Notification
 
     protected $task;
     protected $assignedBy;
+    protected $requestId;
 
-    /**
-     * Create a new notification instance.
-     */
-    public function __construct($task, $assignedBy)
+    public function __construct($task, $assignedBy, $requestId)
     {
         $this->task = $task;
         $this->assignedBy = $assignedBy;
+        $this->requestId = $requestId;
     }
 
-    /**
-     * Notification delivery channel
-     */
     public function via($notifiable)
     {
         return ['database'];
     }
 
-    /**
-     * Data stored in notifications table
-     */
     public function toDatabase($notifiable)
     {
         return [
 
             'type' => 'task_assignment',
+
+            'request_id' => $this->requestId,
 
             'task_id' => $this->task->id,
             'task_title' => $this->task->title,

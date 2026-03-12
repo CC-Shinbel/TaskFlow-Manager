@@ -26,7 +26,12 @@ class TaskAssignmentController extends Controller
 
         $targetUser = User::findOrFail($request->user_id);
 
-        // Prevent duplicate assignment
+        /*
+        |--------------------------------------------------------------------------
+        | Prevent duplicate assignment
+        |--------------------------------------------------------------------------
+        */
+
         if ($task->assignees()->where('users.id', $targetUser->id)->exists()) {
             return response()->json([
                 'status' => false,
@@ -34,7 +39,12 @@ class TaskAssignmentController extends Controller
             ], 422);
         }
 
-        // Prevent duplicate request
+        /*
+        |--------------------------------------------------------------------------
+        | Prevent duplicate request
+        |--------------------------------------------------------------------------
+        */
+
         $existingRequest = TaskAssignmentRequest::where([
             'task_id' => $task->id,
             'user_id' => $targetUser->id
@@ -47,16 +57,31 @@ class TaskAssignmentController extends Controller
             ], 422);
         }
 
-        // Create assignment request
-        TaskAssignmentRequest::create([
+        /*
+        |--------------------------------------------------------------------------
+        | Create assignment request
+        |--------------------------------------------------------------------------
+        */
+
+        $assignmentRequest = TaskAssignmentRequest::create([
             'task_id' => $task->id,
             'user_id' => $targetUser->id,
-            'assigned_by' => $user->id
+            'assigned_by' => $user->id,
+            'status' => 'pending'
         ]);
 
-        // Send notification
+        /*
+        |--------------------------------------------------------------------------
+        | Send notification
+        |--------------------------------------------------------------------------
+        */
+
         $targetUser->notify(
-            new TaskAssignmentRequestNotification($task, $user)
+            new TaskAssignmentRequestNotification(
+                $task,
+                $user,
+                $assignmentRequest->id
+            )
         );
 
         return response()->json([
@@ -78,9 +103,21 @@ class TaskAssignmentController extends Controller
 
         $task = Task::findOrFail($assignment->task_id);
 
+        /*
+        |--------------------------------------------------------------------------
+        | Assign user to task
+        |--------------------------------------------------------------------------
+        */
+
         $task->assignees()->attach($user->id, [
             'assigned_by' => $assignment->assigned_by
         ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Remove request
+        |--------------------------------------------------------------------------
+        */
 
         $assignment->delete();
 
