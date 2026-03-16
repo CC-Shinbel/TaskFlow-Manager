@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { Howl } from "howler";
 import api from "../services/api";
 import toast from "react-hot-toast";
 
@@ -11,10 +12,15 @@ interface NotificationData {
 interface Notification {
   id: string;
   read_at: string | null;
+  created_at: string;
   data: NotificationData;
 }
 
 const NotificationBell = () => {
+
+  const soundRef = useRef<Howl | null>(null);
+  const latestTimestamp = useRef<string | null>(null);
+
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState({ top: 0, right: 0 });
@@ -22,24 +28,97 @@ const NotificationBell = () => {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const loadNotifications = async () => {
-    try {
-      const response = await api.get("/notifications");
-      setNotifications(response.data);
-    } catch (err) {
-      console.error("Failed to load notifications", err);
+  /* ------------------ SOUND ------------------ */
+
+  const playSound = () => {
+    if (soundRef.current) {
+      soundRef.current.play();
     }
   };
 
+  /* ------------------ INITIAL FETCH ------------------ */
+
+  const fetchInitialNotifications = async () => {
+    try {
+
+      const response = await api.get("/notifications", {
+        params: { limit: 20 }
+      });
+
+      const data: Notification[] = response.data;
+
+      setNotifications(data);
+
+      if (data.length > 0) {
+        latestTimestamp.current = data[0].created_at;
+      }
+
+    } catch (err) {
+      console.error("Failed to fetch notifications", err);
+    }
+  };
+
+  /* ------------------ FETCH NEW ONLY ------------------ */
+
+  const fetchNewNotifications = async () => {
+
+    if (!latestTimestamp.current) return;
+
+    try {
+
+      const response = await api.get("/notifications", {
+        params: { after: latestTimestamp.current }
+      });
+
+      const newNotifications: Notification[] = response.data;
+
+      if (newNotifications.length === 0) return;
+
+      playSound();
+
+      setNotifications(prev => {
+
+        const existingIds = new Set(prev.map(n => n.id));
+
+        const filtered = newNotifications.filter(
+          n => !existingIds.has(n.id)
+        );
+
+        return [...filtered, ...prev];
+
+      });
+
+      latestTimestamp.current = newNotifications[0].created_at;
+
+    } catch (err) {
+      console.error("Notification polling failed", err);
+    }
+
+  };
+
+  /* ------------------ INIT ------------------ */
+
   useEffect(() => {
-    loadNotifications();
-    const interval = setInterval(loadNotifications, 30000);
+
+    soundRef.current = new Howl({
+      src: ["/sound/notify.mp3"],
+      volume: 0.5
+    });
+
+    fetchInitialNotifications();
+
+    const interval = setInterval(fetchNewNotifications, 5000);
+
     return () => clearInterval(interval);
+
   }, []);
 
-  // Close dropdown when clicking outside
+  /* ------------------ CLICK OUTSIDE ------------------ */
+
   useEffect(() => {
-    const handleClick = (event: MouseEvent) => {
+
+    const handleClickOutside = (event: MouseEvent) => {
+
       if (
         dropdownRef.current &&
         !dropdownRef.current.contains(event.target as Node) &&
@@ -47,13 +126,19 @@ const NotificationBell = () => {
       ) {
         setOpen(false);
       }
+
     };
 
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+
   }, []);
 
+  /* ------------------ DROPDOWN POSITION ------------------ */
+
   const toggleDropdown = () => {
+
     if (!buttonRef.current) return;
 
     const rect = buttonRef.current.getBoundingClientRect();
@@ -64,66 +149,127 @@ const NotificationBell = () => {
     });
 
     setOpen(!open);
+
   };
 
-  const removeNotification = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
+  /* ------------------ DELETE ------------------ */
+
+  const removeNotification = async (id: string) => {
+
+    try {
+
+      await api.delete(`/notifications/${id}`);
+
+      setNotifications(prev =>
+        prev.filter(n => n.id !== id)
+      );
+
+    } catch {
+      toast.error("Failed to delete notification");
+    }
+
   };
+
+  /* ------------------ MARK READ ------------------ */
 
   const markAsRead = async (id: string) => {
-    await api.post(`/notifications/${id}/read`);
-    setNotifications(prev =>
-      prev.map(n =>
-        n.id === id ? { ...n, read_at: new Date().toISOString() } : n
-      )
-    );
+
+    try {
+
+      await api.post(`/notifications/${id}/read`);
+
+      setNotifications(prev =>
+        prev.map(n =>
+          n.id === id
+            ? { ...n, read_at: new Date().toISOString() }
+            : n
+        )
+      );
+
+    } catch {
+      toast.error("Failed to mark notification");
+    }
+
   };
 
+  /* ------------------ PROJECT INVITE ------------------ */
+
   const acceptInvite = async (inviteId: number, notificationId: string) => {
+
     try {
+
       await api.post(`/project-invites/${inviteId}/accept`);
-      removeNotification(notificationId);
+      await api.post(`/notifications/${notificationId}/read`);
+
+      markAsRead(notificationId);
+
       toast.success("Project invite accepted 🎉");
+
     } catch {
       toast.error("Failed to accept invite");
     }
+
   };
 
   const declineInvite = async (inviteId: number, notificationId: string) => {
+
     try {
+
       await api.post(`/project-invites/${inviteId}/decline`);
-      removeNotification(notificationId);
+      await api.post(`/notifications/${notificationId}/read`);
+
+      markAsRead(notificationId);
+
       toast("Invite declined");
+
     } catch {
       toast.error("Failed to decline invite");
     }
+
   };
 
+  /* ------------------ TASK ASSIGNMENT ------------------ */
+
   const acceptAssignment = async (requestId: number, notificationId: string) => {
+
     try {
+
       await api.post(`/task-assignments/${requestId}/accept`);
-      removeNotification(notificationId);
+      await api.post(`/notifications/${notificationId}/read`);
+
+      markAsRead(notificationId);
+
       toast.success("Task accepted ✔️");
+
     } catch {
       toast.error("Failed to accept task");
     }
+
   };
 
   const declineAssignment = async (requestId: number, notificationId: string) => {
+
     try {
+
       await api.post(`/task-assignments/${requestId}/decline`);
-      removeNotification(notificationId);
+      await api.post(`/notifications/${notificationId}/read`);
+
+      markAsRead(notificationId);
+
       toast("Task declined");
+
     } catch {
       toast.error("Failed to decline task");
     }
+
   };
 
   const unreadCount = notifications.filter(n => !n.read_at).length;
 
+  /* ------------------ UI ------------------ */
+
   return (
     <>
-      {/* Bell Button */}
       <button
         ref={buttonRef}
         onClick={toggleDropdown}
@@ -150,6 +296,7 @@ const NotificationBell = () => {
             }}
             className="w-[360px] p-4 border shadow-xl backdrop-blur-xl bg-white/30 border-white/20 rounded-2xl"
           >
+
             <h3 className="mb-4 text-lg font-semibold text-white">
               Notifications
             </h3>
@@ -159,49 +306,65 @@ const NotificationBell = () => {
                 No notifications
               </p>
             ) : (
-              <div className="space-y-3 max-h-[420px] overflow-y-auto">
+
+              <div className="space-y-3 max-h-[420px] overflow-y-auto custom-scrollbar pr-1">
+
                 {notifications.map(notification => {
+
                   const data = notification.data;
 
                   return (
+
                     <div
                       key={notification.id}
-                      className={`p-4 rounded-xl bg-white/10 text-sm text-white transition ${
+                      className={`relative p-4 rounded-xl bg-white/10 text-sm text-white ${
                         notification.read_at ? "opacity-70" : ""
                       }`}
                     >
+
+                      <button
+                        onClick={() => removeNotification(notification.id)}
+                        className="absolute text-xs opacity-60 top-2 right-2 hover:opacity-100"
+                      >
+                        ✕
+                      </button>
+
                       {/* PROJECT INVITE */}
                       {data.type === "project_invite" && (
                         <>
                           <p>
                             <span className="font-semibold">
-                              {data.invited_by_name || "Someone"}
+                              {data.invited_by_name}
                             </span>{" "}
                             invited you to{" "}
                             <span className="font-semibold">
-                              {data.project_name || "a project"}
+                              {data.project_name}
                             </span>
                           </p>
 
-                          <div className="flex gap-2 mt-3">
-                            <button
-                              onClick={() =>
-                                acceptInvite(data.invite_id, notification.id)
-                              }
-                              className="px-3 py-1 text-xs font-semibold rounded-lg bg-[var(--clr-primary-a0)] hover:bg-[var(--clr-primary-a10)]"
-                            >
-                              Accept
-                            </button>
+                          {!notification.read_at && (
+                            <div className="flex gap-2 mt-3">
 
-                            <button
-                              onClick={() =>
-                                declineInvite(data.invite_id, notification.id)
-                              }
-                              className="px-3 py-1 text-xs rounded-lg bg-white/20 hover:bg-white/30"
-                            >
-                              Decline
-                            </button>
-                          </div>
+                              <button
+                                onClick={() =>
+                                  acceptInvite(data.invite_id, notification.id)
+                                }
+                                className="px-3 py-1 text-xs font-semibold rounded-lg bg-[var(--clr-primary-a0)]"
+                              >
+                                Accept
+                              </button>
+
+                              <button
+                                onClick={() =>
+                                  declineInvite(data.invite_id, notification.id)
+                                }
+                                className="px-3 py-1 text-xs rounded-lg bg-white/20"
+                              >
+                                Decline
+                              </button>
+
+                            </div>
+                          )}
                         </>
                       )}
 
@@ -210,33 +373,37 @@ const NotificationBell = () => {
                         <>
                           <p>
                             <span className="font-semibold">
-                              {data.assigned_by_name || "Someone"}
+                              {data.assigned_by_name}
                             </span>{" "}
                             assigned you to{" "}
                             <span className="font-semibold">
-                              {data.task_title || "a task"}
+                              {data.task_title}
                             </span>
                           </p>
 
-                          <div className="flex gap-2 mt-3">
-                            <button
-                              onClick={() =>
-                                acceptAssignment(data.request_id, notification.id)
-                              }
-                              className="px-3 py-1 text-xs font-semibold rounded-lg bg-[var(--clr-primary-a0)] hover:bg-[var(--clr-primary-a10)]"
-                            >
-                              Accept
-                            </button>
+                          {!notification.read_at && (
+                            <div className="flex gap-2 mt-3">
 
-                            <button
-                              onClick={() =>
-                                declineAssignment(data.request_id, notification.id)
-                              }
-                              className="px-3 py-1 text-xs rounded-lg bg-white/20 hover:bg-white/30"
-                            >
-                              Decline
-                            </button>
-                          </div>
+                              <button
+                                onClick={() =>
+                                  acceptAssignment(data.request_id, notification.id)
+                                }
+                                className="px-3 py-1 text-xs font-semibold rounded-lg bg-[var(--clr-primary-a0)]"
+                              >
+                                Accept
+                              </button>
+
+                              <button
+                                onClick={() =>
+                                  declineAssignment(data.request_id, notification.id)
+                                }
+                                className="px-3 py-1 text-xs rounded-lg bg-white/20"
+                              >
+                                Decline
+                              </button>
+
+                            </div>
+                          )}
                         </>
                       )}
 
@@ -244,31 +411,9 @@ const NotificationBell = () => {
                       {data.type === "new_comment" && (
                         <p>
                           <span className="font-semibold">
-                            {data.user_name || "Someone"}
+                            {data.user_name}
                           </span>{" "}
-                          commented {data.task_id ? "on a task" : "on the project"}
-                        </p>
-                      )}
-
-                      {/* DEADLINE */}
-                      {data.type === "task_deadline_reminder" && (
-                        <p>
-                          Task{" "}
-                          <span className="font-semibold">
-                            {data.task_title || "a task"}
-                          </span>{" "}
-                          is due tomorrow
-                        </p>
-                      )}
-
-                      {/* OVERDUE */}
-                      {data.type === "task_overdue" && (
-                        <p className="text-red-300">
-                          Task{" "}
-                          <span className="font-semibold">
-                            {data.task_title || "a task"}
-                          </span>{" "}
-                          is overdue
+                          commented on a task
                         </p>
                       )}
 
@@ -280,11 +425,16 @@ const NotificationBell = () => {
                           Mark as read
                         </button>
                       )}
+
                     </div>
+
                   );
+
                 })}
+
               </div>
             )}
+
           </div>,
           document.body
         )}

@@ -3,7 +3,7 @@ import TopNavbar from "../components/TopNavbar";
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-[var(--clr-primary-a10)] via-[var(--clr-primary-a20)] to-[var(--clr-primary-a40)]">
+    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-[var(--clr-primary-a10)] via-[var(--clr-primary-a20)] to-[var(--clr-primary-a40)] ">
 
       {/* SIDEBAR */}
       <Sidebar />
@@ -15,7 +15,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
         <TopNavbar />
 
         {/* MAIN CONTENT AREA */}
-        <main className="relative flex-1 overflow-hidden">
+        <main className="relative flex-1 overflow-hidden custom-scrollbar pr-1">
 
           {/* Global Background Shapes */}
           <div className="absolute w-[500px] h-[500px] bg-white/10 rounded-full blur-3xl -top-20 -left-20 pointer-events-none"></div>

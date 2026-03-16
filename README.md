@@ -40,7 +40,7 @@ flow, and separation of concerns.
 
 ## 🖼 Screenshots
 
-> Replace these placeholders with actual screenshots stored in
+<!-- > Replace these placeholders with actual screenshots stored in
 > `/screenshots`
 
 -`/screenshots/login.png`
@@ -52,7 +52,7 @@ Example usage after adding images:
 
 ```
 ![Login Page](./screenshots/login.png)
-```
+``` -->
 
 ------------------------------------------------------------------------
 
@@ -208,6 +208,8 @@ This ensures secure access control between frontend and backend.
 - DELETE /api/tasks/{id}
 
 All task routes require authentication.
+
+**Note:** This portion is missing a few routes, will update soon.
 
 ------------------------------------------------------------------------
 

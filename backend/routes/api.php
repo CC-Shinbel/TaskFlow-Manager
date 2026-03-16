@@ -88,9 +88,17 @@ Route::middleware('auth:sanctum')->group(function () {
     */
 
     Route::get('/notifications', function (Request $request) {
-        return $request->user()->notifications;
-    });
 
+        $query = $request->user()
+            ->notifications()
+            ->orderBy('created_at', 'desc');
+
+        if ($request->has('after')) {
+            $query->where('created_at', '>', $request->after);
+        }
+
+        return $query->limit(20)->get();
+    });
     Route::post('/notifications/{id}/read', function (Request $request, $id) {
 
         $notification = $request->user()
@@ -98,6 +106,19 @@ Route::middleware('auth:sanctum')->group(function () {
             ->findOrFail($id);
 
         $notification->markAsRead();
+
+        return response()->json([
+            'status' => true
+        ]);
+    });
+
+    Route::delete('/notifications/{id}', function (Request $request, $id) {
+
+        $notification = $request->user()
+            ->notifications()
+            ->findOrFail($id);
+
+        $notification->delete();
 
         return response()->json([
             'status' => true
