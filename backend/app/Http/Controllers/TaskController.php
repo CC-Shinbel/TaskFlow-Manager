@@ -6,7 +6,6 @@ use App\Models\Task;
 use App\Models\Project;
 use Illuminate\Http\Request;
 use App\Http\Requests\StoreTaskRequest;
-use App\Http\Requests\UpdateTaskRequest;
 
 class TaskController extends Controller
 {
@@ -19,11 +18,9 @@ class TaskController extends Controller
 
         $query = Task::where(function ($query) use ($user) {
 
-            // Personal tasks
             $query->whereNull('project_id')
                 ->where('created_by', $user->id);
 
-            // OR project tasks
             $query->orWhereHas('project.users', function ($q) use ($user) {
                 $q->where('project_user.user_id', $user->id);
             });
@@ -65,7 +62,6 @@ class TaskController extends Controller
         $user = $request->user();
         $data = $request->validated();
 
-        // If project task → enforce permission
         if (!empty($data['project_id'])) {
 
             $project = Project::findOrFail($data['project_id']);
@@ -115,18 +111,32 @@ class TaskController extends Controller
     }
 
     /**
-     * Update task
+     * ✅ FIXED UPDATE (PARTIAL PAYLOAD SUPPORT)
      */
-    public function update(UpdateTaskRequest $request, Task $task)
+    public function update(Request $request, Task $task)
     {
         $this->authorizeTaskAccess($request->user(), $task);
 
-        $task->update($request->validated());
+        // ✅ Partial validation
+        $validated = $request->validate([
+            'title' => 'sometimes|string|max:255',
+            'description' => 'sometimes|nullable|string',
+            'status' => 'sometimes|in:pending,in_progress,completed',
+            'priority' => 'sometimes|in:low,medium,high',
+            'due_date' => 'sometimes|nullable|date',
+        ]);
+
+        // ✅ Only update provided fields
+        $task->update($validated);
 
         return response()->json([
             'status' => true,
             'message' => 'Task updated',
-            'data' => $task->load('assignees:id,name')
+            'data' => $task->load([
+                'project:id,name',
+                'creator:id,name',
+                'assignees:id,name'
+            ])
         ]);
     }
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Howl } from "howler";
+import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import toast from "react-hot-toast";
 
@@ -18,6 +19,8 @@ interface Notification {
 
 const NotificationBell = () => {
 
+  const navigate = useNavigate();
+
   const soundRef = useRef<Howl | null>(null);
   const latestTimestamp = useRef<string | null>(null);
 
@@ -31,16 +34,13 @@ const NotificationBell = () => {
   /* ------------------ SOUND ------------------ */
 
   const playSound = () => {
-    if (soundRef.current) {
-      soundRef.current.play();
-    }
+    soundRef.current?.play();
   };
 
   /* ------------------ INITIAL FETCH ------------------ */
 
   const fetchInitialNotifications = async () => {
     try {
-
       const response = await api.get("/notifications", {
         params: { limit: 20 }
       });
@@ -152,32 +152,52 @@ const NotificationBell = () => {
 
   };
 
-  /* ------------------ DELETE ------------------ */
+  /* ------------------ CLICK NOTIFICATION ------------------ */
 
-  const removeNotification = async (id: string) => {
+  const handleNotificationClick = async (notification: Notification) => {
+
+    const data = notification.data;
 
     try {
 
+      if (!notification.read_at) {
+        await api.post(`/notifications/${notification.id}/read`);
+
+        setNotifications(prev =>
+          prev.map(n =>
+            n.id === notification.id
+              ? { ...n, read_at: new Date().toISOString() }
+              : n
+          )
+        );
+      }
+
+      if (data.type === "new_comment" && data.project_id) {
+        navigate(`/projects/${data.project_id}`);
+      }
+
+    } catch (err) {
+      console.error("Notification click error", err);
+    }
+
+  };
+
+  /* ------------------ DELETE ------------------ */
+
+  const removeNotification = async (id: string) => {
+    try {
       await api.delete(`/notifications/${id}`);
-
-      setNotifications(prev =>
-        prev.filter(n => n.id !== id)
-      );
-
+      setNotifications(prev => prev.filter(n => n.id !== id));
     } catch {
       toast.error("Failed to delete notification");
     }
-
   };
 
   /* ------------------ MARK READ ------------------ */
 
   const markAsRead = async (id: string) => {
-
     try {
-
       await api.post(`/notifications/${id}/read`);
-
       setNotifications(prev =>
         prev.map(n =>
           n.id === id
@@ -185,83 +205,53 @@ const NotificationBell = () => {
             : n
         )
       );
-
     } catch {
       toast.error("Failed to mark notification");
     }
-
   };
 
-  /* ------------------ PROJECT INVITE ------------------ */
+  /* ------------------ INVITES ------------------ */
 
   const acceptInvite = async (inviteId: number, notificationId: string) => {
-
     try {
-
       await api.post(`/project-invites/${inviteId}/accept`);
-      await api.post(`/notifications/${notificationId}/read`);
-
-      markAsRead(notificationId);
-
+      await markAsRead(notificationId);
       toast.success("Project invite accepted 🎉");
-
     } catch {
       toast.error("Failed to accept invite");
     }
-
   };
 
   const declineInvite = async (inviteId: number, notificationId: string) => {
-
     try {
-
       await api.post(`/project-invites/${inviteId}/decline`);
-      await api.post(`/notifications/${notificationId}/read`);
-
-      markAsRead(notificationId);
-
+      await markAsRead(notificationId);
       toast("Invite declined");
-
     } catch {
       toast.error("Failed to decline invite");
     }
-
   };
 
   /* ------------------ TASK ASSIGNMENT ------------------ */
 
   const acceptAssignment = async (requestId: number, notificationId: string) => {
-
     try {
-
       await api.post(`/task-assignments/${requestId}/accept`);
-      await api.post(`/notifications/${notificationId}/read`);
-
-      markAsRead(notificationId);
-
+      await markAsRead(notificationId);
       toast.success("Task accepted ✔️");
-
     } catch {
       toast.error("Failed to accept task");
     }
-
   };
 
   const declineAssignment = async (requestId: number, notificationId: string) => {
-
     try {
-
       await api.post(`/task-assignments/${requestId}/decline`);
-      await api.post(`/notifications/${notificationId}/read`);
-
-      markAsRead(notificationId);
-
+      await markAsRead(notificationId);
       toast("Task declined");
-
     } catch {
       toast.error("Failed to decline task");
     }
-
   };
 
   const unreadCount = notifications.filter(n => !n.read_at).length;
@@ -306,7 +296,6 @@ const NotificationBell = () => {
                 No notifications
               </p>
             ) : (
-
               <div className="space-y-3 max-h-[420px] overflow-y-auto custom-scrollbar pr-1">
 
                 {notifications.map(notification => {
@@ -314,16 +303,20 @@ const NotificationBell = () => {
                   const data = notification.data;
 
                   return (
-
                     <div
                       key={notification.id}
-                      className={`relative p-4 rounded-xl bg-white/10 text-sm text-white ${
+                      onClick={() => handleNotificationClick(notification)}
+                      className={`relative p-4 rounded-xl bg-white/10 text-sm text-white cursor-pointer hover:bg-white/20 transition ${
                         notification.read_at ? "opacity-70" : ""
                       }`}
                     >
 
+                      {/* DELETE */}
                       <button
-                        onClick={() => removeNotification(notification.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeNotification(notification.id);
+                        }}
                         className="absolute text-xs opacity-60 top-2 right-2 hover:opacity-100"
                       >
                         ✕
@@ -346,18 +339,20 @@ const NotificationBell = () => {
                             <div className="flex gap-2 mt-3">
 
                               <button
-                                onClick={() =>
-                                  acceptInvite(data.invite_id, notification.id)
-                                }
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  acceptInvite(data.invite_id, notification.id);
+                                }}
                                 className="px-3 py-1 text-xs font-semibold rounded-lg bg-[var(--clr-primary-a0)]"
                               >
                                 Accept
                               </button>
 
                               <button
-                                onClick={() =>
-                                  declineInvite(data.invite_id, notification.id)
-                                }
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  declineInvite(data.invite_id, notification.id);
+                                }}
                                 className="px-3 py-1 text-xs rounded-lg bg-white/20"
                               >
                                 Decline
@@ -385,18 +380,20 @@ const NotificationBell = () => {
                             <div className="flex gap-2 mt-3">
 
                               <button
-                                onClick={() =>
-                                  acceptAssignment(data.request_id, notification.id)
-                                }
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  acceptAssignment(data.request_id, notification.id);
+                                }}
                                 className="px-3 py-1 text-xs font-semibold rounded-lg bg-[var(--clr-primary-a0)]"
                               >
                                 Accept
                               </button>
 
                               <button
-                                onClick={() =>
-                                  declineAssignment(data.request_id, notification.id)
-                                }
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  declineAssignment(data.request_id, notification.id);
+                                }}
                                 className="px-3 py-1 text-xs rounded-lg bg-white/20"
                               >
                                 Decline
@@ -417,17 +414,7 @@ const NotificationBell = () => {
                         </p>
                       )}
 
-                      {!notification.read_at && (
-                        <button
-                          onClick={() => markAsRead(notification.id)}
-                          className="block mt-3 text-xs opacity-70 hover:opacity-100"
-                        >
-                          Mark as read
-                        </button>
-                      )}
-
                     </div>
-
                   );
 
                 })}
