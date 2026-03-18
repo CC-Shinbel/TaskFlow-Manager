@@ -18,9 +18,11 @@ class TaskController extends Controller
 
         $query = Task::where(function ($query) use ($user) {
 
+            // Personal tasks
             $query->whereNull('project_id')
                 ->where('created_by', $user->id);
 
+            // Project tasks
             $query->orWhereHas('project.users', function ($q) use ($user) {
                 $q->where('project_user.user_id', $user->id);
             });
@@ -45,7 +47,10 @@ class TaskController extends Controller
                 'creator:id,name',
                 'assignees:id,name'
             ])
-            ->paginate(10);
+            ->paginate(10)
+            ->through(function ($task) {
+                return $this->formatTask($task);
+            });
 
         return response()->json([
             'status' => true,
@@ -62,6 +67,7 @@ class TaskController extends Controller
         $user = $request->user();
         $data = $request->validated();
 
+        // If project task → enforce permission
         if (!empty($data['project_id'])) {
 
             $project = Project::findOrFail($data['project_id']);
@@ -88,7 +94,9 @@ class TaskController extends Controller
         return response()->json([
             'status' => true,
             'message' => 'Task created',
-            'data' => $task->load('assignees:id,name')
+            'data' => $this->formatTask(
+                $task->load('project:id,name', 'creator:id,name', 'assignees:id,name')
+            )
         ], 201);
     }
 
@@ -99,25 +107,26 @@ class TaskController extends Controller
     {
         $this->authorizeTaskAccess($request->user(), $task);
 
+        $task->load([
+            'project:id,name',
+            'creator:id,name',
+            'assignees:id,name'
+        ]);
+
         return response()->json([
             'status' => true,
             'message' => 'Task retrieved',
-            'data' => $task->load([
-                'project:id,name',
-                'creator:id,name',
-                'assignees:id,name'
-            ])
+            'data' => $this->formatTask($task)
         ]);
     }
 
     /**
-     * ✅ FIXED UPDATE (PARTIAL PAYLOAD SUPPORT)
+     * Update task (Partial payload)
      */
     public function update(Request $request, Task $task)
     {
         $this->authorizeTaskAccess($request->user(), $task);
 
-        // ✅ Partial validation
         $validated = $request->validate([
             'title' => 'sometimes|string|max:255',
             'description' => 'sometimes|nullable|string',
@@ -126,17 +135,14 @@ class TaskController extends Controller
             'due_date' => 'sometimes|nullable|date',
         ]);
 
-        // ✅ Only update provided fields
         $task->update($validated);
 
         return response()->json([
             'status' => true,
             'message' => 'Task updated',
-            'data' => $task->load([
-                'project:id,name',
-                'creator:id,name',
-                'assignees:id,name'
-            ])
+            'data' => $this->formatTask(
+                $task->load('project:id,name', 'creator:id,name', 'assignees:id,name')
+            )
         ]);
     }
 
@@ -154,6 +160,31 @@ class TaskController extends Controller
             'message' => 'Task deleted',
             'data' => []
         ]);
+    }
+
+    /**
+     * Format task (STANDARDIZED RESPONSE)
+     */
+    private function formatTask($task)
+    {
+        return [
+            'id' => $task->id,
+            'title' => $task->title,
+            'description' => $task->description,
+            'status' => $task->status,
+            'priority' => $task->priority,
+            'due_date' => $task->due_date,
+            'created_at' => $task->created_at,
+            'updated_at' => $task->updated_at,
+
+            // ✅ CRITICAL FOR OPTION A
+            'project_id' => $task->project_id,
+
+            // Relations
+            'project' => $task->project,
+            'creator' => $task->creator,
+            'assignees' => $task->assignees,
+        ];
     }
 
     /**

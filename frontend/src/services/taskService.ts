@@ -2,26 +2,83 @@
 
 import api from "./api";
 
+/**
+ * Task shape (based on your controller formatTask)
+ */
+export interface Task {
+  id: number;
+  title: string;
+  description?: string;
+  status: "pending" | "in_progress" | "completed";
+  priority?: "low" | "medium" | "high";
+  due_date?: string;
+  created_at?: string;
+  updated_at?: string;
+
+  project_id?: number;
+
+  project?: {
+    id: number;
+    name: string;
+  };
+
+  creator?: {
+    id: number;
+    name: string;
+  };
+
+  assignees?: {
+    id: number;
+    name: string;
+  }[];
+}
+
+/**
+ * Paginated response wrapper
+ */
+export interface PaginatedTasks {
+  data: Task[];
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+}
+
 export const taskService = {
 
   /**
-   * Get tasks (supports pagination, filters)
+   * =========================
+   * GET TASKS (Paginated + Filters)
+   * =========================
    */
-  getTasks(params?: any) {
-    return api.get("/tasks", { params });
+  async getTasks(params?: {
+    project_id?: number | string;
+    status?: string;
+    page?: number;
+    sort_by?: string;
+    direction?: "asc" | "desc";
+  }) {
+    const response = await api.get("/tasks", { params });
+
+    return response.data.data as PaginatedTasks;
   },
 
   /**
-   * Get single task
+   * =========================
+   * GET SINGLE TASK
+   * =========================
    */
-  getTask(taskId: number) {
-    return api.get(`/tasks/${taskId}`);
+  async getTask(taskId: number) {
+    const response = await api.get(`/tasks/${taskId}`);
+    return response.data.data as Task;
   },
 
   /**
-   * Create task
+   * =========================
+   * CREATE TASK
+   * =========================
    */
-  createTask(data: {
+  async createTask(data: {
     title: string;
     description?: string;
     project_id?: number;
@@ -29,51 +86,65 @@ export const taskService = {
     priority?: string;
     due_date?: string;
   }) {
-    return api.post("/tasks", data);
+    const response = await api.post("/tasks", data);
+    return response.data.data as Task;
   },
 
   /**
-   * ✅ Update task (PARTIAL SUPPORTED)
+   * =========================
+   * UPDATE TASK (Partial)
+   * =========================
    */
-  updateTask(taskId: number, data: Partial<{
-    title: string;
-    description: string;
-    status: string;
-    priority: string;
-    due_date: string;
-  }>) {
-    return api.put(`/tasks/${taskId}`, data);
+  async updateTask(
+    taskId: number,
+    data: Partial<{
+      title: string;
+      description: string;
+      status: string;
+      priority: string;
+      due_date: string;
+    }>
+  ) {
+    const response = await api.put(`/tasks/${taskId}`, data);
+    return response.data.data as Task;
   },
 
   /**
-   * ✅ Optional: Dedicated status update (clean usage)
+   * =========================
+   * UPDATE STATUS (Shortcut)
+   * =========================
    */
-  updateStatus(taskId: number, status: string) {
-    return api.put(`/tasks/${taskId}`, { status });
-    // OR if you created PATCH endpoint:
-    // return api.patch(`/tasks/${taskId}/status`, { status });
+  async updateStatus(taskId: number, status: string) {
+    const response = await api.put(`/tasks/${taskId}`, { status });
+    return response.data.data as Task;
   },
 
   /**
-   * Delete task
+   * =========================
+   * DELETE TASK
+   * =========================
    */
-  deleteTask(taskId: number) {
+  async deleteTask(taskId: number) {
     return api.delete(`/tasks/${taskId}`);
   },
 
   /**
-   * Assign user to task
+   * =========================
+   * ASSIGN USER
+   * =========================
    */
-  assignUser(taskId: number, userId: number) {
+  async assignUser(taskId: number, userId: number) {
     return api.post(`/tasks/${taskId}/assign`, {
       user_id: userId
     });
   },
 
   /**
-   * Remove user from task
+   * =========================
+   * REMOVE USER
+   * =========================
    */
-  removeUser(taskId: number, userId: number) {
+  async removeUser(taskId: number, userId: number) {
     return api.delete(`/tasks/${taskId}/assign/${userId}`);
   }
 

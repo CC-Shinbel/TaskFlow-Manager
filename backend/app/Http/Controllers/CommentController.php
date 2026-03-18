@@ -11,24 +11,25 @@ use App\Notifications\NewCommentNotification;
 class CommentController extends Controller
 {
     /**
-     * List comments
+     * =========================
+     * LIST COMMENTS
+     * =========================
      */
     public function index(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'project_id' => 'required|exists:projects,id',
             'task_id' => 'nullable|exists:tasks,id'
         ]);
 
         $user = $request->user();
 
-        $project = Project::findOrFail($request->project_id);
-
+        $project = Project::findOrFail($validated['project_id']);
         $this->authorizeProjectMembership($user, $project);
 
         $comments = Comment::where('project_id', $project->id)
-            ->when($request->task_id, function ($query) use ($request) {
-                $query->where('task_id', $request->task_id);
+            ->when($validated['task_id'] ?? null, function ($query, $taskId) {
+                $query->where('task_id', $taskId);
             })
             ->with('user:id,name')
             ->latest()
@@ -42,11 +43,13 @@ class CommentController extends Controller
     }
 
     /**
-     * Create comment
+     * =========================
+     * CREATE COMMENT
+     * =========================
      */
     public function store(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'project_id' => 'required|exists:projects,id',
             'task_id' => 'nullable|exists:tasks,id',
             'content' => 'required|string'
@@ -54,15 +57,15 @@ class CommentController extends Controller
 
         $user = $request->user();
 
-        $project = Project::findOrFail($request->project_id);
-
+        $project = Project::findOrFail($validated['project_id']);
         $this->authorizeProjectMembership($user, $project);
 
         $task = null;
 
-        if ($request->task_id) {
+        // Validate task belongs to project
+        if (!empty($validated['task_id'])) {
 
-            $task = Task::findOrFail($request->task_id);
+            $task = Task::findOrFail($validated['task_id']);
 
             if ($task->project_id !== $project->id) {
                 abort(403, 'Task does not belong to this project.');
@@ -71,57 +74,15 @@ class CommentController extends Controller
 
         $comment = Comment::create([
             'project_id' => $project->id,
-            'task_id' => $request->task_id,
+            'task_id' => $validated['task_id'] ?? null,
             'user_id' => $user->id,
-            'content' => $request->content
+            'content' => $validated['content']
         ]);
 
-        /*
-        |--------------------------------------------------------------------------
-        | NOTIFICATIONS
-        |--------------------------------------------------------------------------
-        */
-
-        $notifiedUsers = collect();
-
-        /**
-         * Notify task assignees
-         */
-        if ($task) {
-
-            $task->load('assignees');
-
-            foreach ($task->assignees as $assignee) {
-
-                if (!$notifiedUsers->contains($assignee->id)) {
-
-                    $assignee->notify(
-                        new NewCommentNotification($comment)
-                    );
-
-                    $notifiedUsers->push($assignee->id);
-                }
-            }
-        }
-
-        /**
-         * Notify project managers
-         */
-        $managers = $project->users()
-            ->wherePivotIn('role', ['owner', 'co_owner', 'collaborator'])
-            ->get();
-
-        foreach ($managers as $manager) {
-
-            if (!$notifiedUsers->contains($manager->id)) {
-
-                $manager->notify(
-                    new NewCommentNotification($comment)
-                );
-
-                $notifiedUsers->push($manager->id);
-            }
-        }
+        // =========================
+        // NOTIFICATIONS
+        // =========================
+        $this->sendNotifications($project, $task, $comment);
 
         return response()->json([
             'status' => true,
@@ -131,12 +92,56 @@ class CommentController extends Controller
     }
 
     /**
-     * Delete comment
+     * =========================
+     * UPDATE COMMENT
+     * =========================
+     */
+    public function update(Request $request, Comment $comment)
+    {
+        $validated = $request->validate([
+            'content' => 'required|string'
+        ]);
+
+        $user = $request->user();
+        $project = $comment->project;
+
+        $membership = $project->users()
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$membership) {
+            abort(403, 'Unauthorized project access.');
+        }
+
+        $role = $membership->pivot->role;
+
+        if (
+            $comment->user_id === $user->id ||
+            in_array($role, ['owner', 'co_owner'])
+        ) {
+
+            $comment->update([
+                'content' => $validated['content']
+            ]);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Comment updated',
+                'data' => $comment->load('user:id,name')
+            ]);
+        }
+
+        abort(403, 'Unauthorized to edit this comment.');
+    }
+
+    /**
+     * =========================
+     * DELETE COMMENT
+     * =========================
      */
     public function destroy(Request $request, Comment $comment)
     {
         $user = $request->user();
-
         $project = $comment->project;
 
         $membership = $project->users()
@@ -166,7 +171,54 @@ class CommentController extends Controller
     }
 
     /**
-     * Ensure membership
+     * =========================
+     * SEND NOTIFICATIONS
+     * =========================
+     */
+    private function sendNotifications($project, $task, $comment)
+    {
+        $notifiedUsers = collect();
+
+        // Task assignees
+        if ($task) {
+
+            $task->load('assignees');
+
+            foreach ($task->assignees as $assignee) {
+
+                if (!$notifiedUsers->contains($assignee->id)) {
+
+                    $assignee->notify(
+                        new NewCommentNotification($comment)
+                    );
+
+                    $notifiedUsers->push($assignee->id);
+                }
+            }
+        }
+
+        // Project managers
+        $managers = $project->users()
+            ->wherePivotIn('role', ['owner', 'co_owner', 'collaborator'])
+            ->get();
+
+        foreach ($managers as $manager) {
+
+            if (!$notifiedUsers->contains($manager->id)) {
+
+                $manager->notify(
+                    new NewCommentNotification($comment)
+                );
+
+                $notifiedUsers->push($manager->id);
+            }
+        }
+    }
+
+    /**
+     * =========================
+     * AUTHORIZATION
+     * =========================
      */
     private function authorizeProjectMembership($user, $project)
     {

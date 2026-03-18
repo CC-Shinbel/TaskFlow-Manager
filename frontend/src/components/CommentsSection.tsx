@@ -14,7 +14,7 @@ interface Comment {
 }
 
 interface Props {
-  projectId: number;
+  projectId?: number; // ✅ optional for Option A
   taskId?: number;
 }
 
@@ -27,16 +27,25 @@ const CommentsSection = ({ projectId, taskId }: Props) => {
   const [editingContent, setEditingContent] = useState("");
 
   // =========================
+  // BUILD PARAMS (SAFE)
+  // =========================
+  const buildParams = () => {
+    const params: any = {};
+
+    if (projectId) params.project_id = projectId;
+    if (taskId) params.task_id = taskId;
+
+    return params;
+  };
+
+  // =========================
   // LOAD COMMENTS
   // =========================
   const loadComments = async () => {
     try {
 
       const response = await api.get("/comments", {
-        params: {
-          project_id: projectId,
-          task_id: taskId
-        }
+        params: buildParams()
       });
 
       setComments(response.data.data);
@@ -59,35 +68,41 @@ const CommentsSection = ({ projectId, taskId }: Props) => {
 
     try {
 
-      await api.post("/comments", {
-        project_id: projectId,
-        task_id: taskId,
+      const payload: any = {
         content
-      });
+      };
+
+      if (taskId) payload.task_id = taskId;
+      if (projectId) payload.project_id = projectId;
+
+      await api.post("/comments", payload);
 
       setContent("");
       loadComments();
 
-    } catch {
+    } catch (err: any) {
+      console.error(err.response?.data);
       toast.error("Failed to add comment");
     }
 
   };
 
   // =========================
-  // START EDIT
+  // EDIT
   // =========================
   const startEdit = (comment: Comment) => {
     setEditingId(comment.id);
     setEditingContent(comment.content);
   };
 
-  // =========================
-  // SAVE EDIT
-  // =========================
   const saveEdit = async () => {
 
     if (!editingId) return;
+
+    if (!editingContent.trim()) {
+      toast.error("Comment cannot be empty");
+      return;
+    }
 
     try {
 
