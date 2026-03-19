@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { projectService } from "../services/projectService";
 import { taskService } from "../services/taskService";
@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import CommentsSection from "../components/CommentsSection";
 import CreateTaskModal from "../components/CreateTaskModal";
 import ProjectMembersPanel from "../components/ProjectMembersPanel";
+import GlassDropdown from "../components/GlassDropdown";
 
 interface Project {
   id: number;
@@ -53,30 +54,23 @@ const ProjectDetailsPage = () => {
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isMembersPanelOpen, setIsMembersPanelOpen] = useState(false);
 
-  // =========================
-  // FILTER STATES (NEW)
-  // =========================
+  // FILTER STATES
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("");
   const [assigneeFilter, setAssigneeFilter] = useState("");
   const [dueDateFilter, setDueDateFilter] = useState("");
 
-  // =========================
   // HELPERS
-  // =========================
   const formatDate = (date?: string) => {
     if (!date) return "None";
     return new Date(date).toLocaleString();
   };
 
   const formatStatus = (status: string) => {
-    return status
-      .replace("_", " ")
-      .replace(/\b\w/g, l => l.toUpperCase());
+    return status.replace("_", " ").replace(/\b\w/g, l => l.toUpperCase());
   };
 
-  // ✅ STATUS COLOR (SAFE ADD)
   const getStatusColor = (status: string) => {
     switch (status) {
       case "completed":
@@ -88,9 +82,7 @@ const ProjectDetailsPage = () => {
     }
   };
 
-  // =========================
   // LOAD PROJECT
-  // =========================
   const loadProject = useCallback(async () => {
     try {
       const response = await projectService.getProject(Number(id));
@@ -100,31 +92,32 @@ const ProjectDetailsPage = () => {
       setMembers(projectData.members || []);
       setCurrentUserRole(projectData.current_user_role || "member");
 
-    } catch (err) {
-      console.error("Failed to load project:", err);
+    } catch {
       toast.error("Failed to load project");
     }
   }, [id]);
 
-  // =========================
-  // LOAD TASKS
-  // =========================
+  // LOAD TASKS (SERVER FILTERING)
   const loadTasks = useCallback(async (pageNumber = 1) => {
     try {
       const resData = await taskService.getTasks({
         project_id: id,
-        page: pageNumber
+        page: pageNumber,
+        search,
+        status: statusFilter,
+        priority: priorityFilter,
+        assignee_id: assigneeFilter,
+        due_date: dueDateFilter
       });
 
       setTasks(resData.data);
       setPage(resData.current_page);
       setLastPage(resData.last_page);
 
-    } catch (err) {
-      console.error("Failed to load tasks:", err);
+    } catch {
       toast.error("Failed to load tasks");
     }
-  }, [id]);
+  }, [id, search, statusFilter, priorityFilter, assigneeFilter, dueDateFilter]);
 
   const updateTaskStatus = async (taskId: number, status: string) => {
     try {
@@ -136,45 +129,18 @@ const ProjectDetailsPage = () => {
     }
   };
 
+  // INITIAL LOAD
   useEffect(() => {
     if (!id) return;
     loadProject();
+  }, [id, loadProject]);
+
+  // LOAD TASKS WHEN FILTERS CHANGE
+  useEffect(() => {
+    if (!id) return;
+    setPage(1);
     loadTasks(1);
-  }, [id, loadProject, loadTasks]);
-
-  // =========================
-  // FILTER LOGIC (NON-DESTRUCTIVE)
-  // =========================
-  const filteredTasks = useMemo(() => {
-    return tasks.filter(task => {
-      const matchesSearch =
-        task.title.toLowerCase().includes(search.toLowerCase());
-
-      const matchesStatus =
-        !statusFilter || task.status === statusFilter;
-
-      const matchesPriority =
-        !priorityFilter || task.priority === priorityFilter;
-
-      const matchesAssignee =
-        !assigneeFilter ||
-        task.assignees?.some(a => a.id === Number(assigneeFilter));
-
-      const matchesDueDate =
-        !dueDateFilter ||
-        (task.due_date &&
-          new Date(task.due_date).toDateString() ===
-            new Date(dueDateFilter).toDateString());
-
-      return (
-        matchesSearch &&
-        matchesStatus &&
-        matchesPriority &&
-        matchesAssignee &&
-        matchesDueDate
-      );
-    });
-  }, [tasks, search, statusFilter, priorityFilter, assigneeFilter, dueDateFilter]);
+  }, [search, statusFilter, priorityFilter, assigneeFilter, dueDateFilter]);
 
   if (!project) {
     return (
@@ -206,8 +172,9 @@ const ProjectDetailsPage = () => {
         </button>
       </div>
 
-      {/* ✅ FILTER BAR (STYLING PRESERVED) */}
+      {/* FILTER BAR */}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+
         <input
           placeholder="Search..."
           value={search}
@@ -215,26 +182,40 @@ const ProjectDetailsPage = () => {
           className="px-3 py-2 text-white border rounded-xl bg-white/20 border-white/30 placeholder-white/60"
         />
 
-        <select onChange={(e) => setStatusFilter(e.target.value)} className="px-2 py-2 text-white border rounded-xl bg-white/20 border-white/30">
-          <option value="">Status</option>
-          <option value="pending">Pending</option>
-          <option value="in_progress">In Progress</option>
-          <option value="completed">Completed</option>
-        </select>
+        <GlassDropdown
+          value={statusFilter}
+          onChange={setStatusFilter}
+          placeholder="Status"
+          options={[
+            { label: "Pending", value: "pending" },
+            { label: "In Progress", value: "in_progress" },
+            { label: "Completed", value: "completed" }
+          ]}
+        />
 
-        <select onChange={(e) => setPriorityFilter(e.target.value)} className="px-2 py-2 text-white border rounded-xl bg-white/20 border-white/30">
-          <option value="">Priority</option>
-          <option value="low">Low</option>
-          <option value="medium">Medium</option>
-          <option value="high">High</option>
-        </select>
+        <GlassDropdown
+          value={priorityFilter}
+          onChange={setPriorityFilter}
+          placeholder="Priority"
+          options={[
+            { label: "Low", value: "low" },
+            { label: "Medium", value: "medium" },
+            { label: "High", value: "high" }
+          ]}
+        />
 
-        <select onChange={(e) => setAssigneeFilter(e.target.value)} className="px-2 py-2 text-white border rounded-xl bg-white/20 border-white/30">
-          <option value="">Assignee</option>
-          {members.map(m => (
-            <option key={m.id} value={m.id}>{m.name}</option>
-          ))}
-        </select>
+        <GlassDropdown
+          value={assigneeFilter}
+          onChange={setAssigneeFilter}
+          placeholder="Assignee"
+          options={[
+            { label: "All", value: "" },
+            ...members.map(m => ({
+              label: m.name,
+              value: String(m.id)
+            }))
+          ]}
+        />
 
         <input
           type="date"
@@ -253,13 +234,13 @@ const ProjectDetailsPage = () => {
             Project Tasks
           </h2>
 
-          {filteredTasks.length === 0 ? (
+          {tasks.length === 0 ? (
             <p className="opacity-70">No tasks found.</p>
           ) : (
             <>
               <div className="space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar pr-1">
 
-                {filteredTasks.map((task) => (
+                {tasks.map((task) => (
                   <div
                     key={task.id}
                     className="p-5 transition bg-white/10 rounded-xl hover:bg-white/20"
@@ -277,7 +258,6 @@ const ProjectDetailsPage = () => {
                       <span>By: {task.creator?.name || "Unknown"}</span>
                     </div>
 
-                    {/* ✅ COLORED STATUS */}
                     <div className="flex items-center justify-between mt-4">
 
                       <span className={`text-sm font-medium px-2 py-1 rounded-lg ${getStatusColor(task.status)}`}>
@@ -308,8 +288,7 @@ const ProjectDetailsPage = () => {
 
                     {task.assignees?.length > 0 && (
                       <div className="mt-2 text-xs opacity-80">
-                        Assigned to:{" "}
-                        {task.assignees.map(u => u.name).join(", ")}
+                        Assigned to: {task.assignees.map(u => u.name).join(", ")}
                       </div>
                     )}
 
@@ -379,10 +358,7 @@ const ProjectDetailsPage = () => {
         isOpen={isTaskModalOpen}
         projectId={project.id}
         onClose={() => setIsTaskModalOpen(false)}
-        onCreated={() => {
-          setIsTaskModalOpen(false);
-          loadTasks(page);
-        }}
+        onCreated={() => loadTasks(page)}
       />
 
       <ProjectMembersPanel

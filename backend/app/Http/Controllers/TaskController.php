@@ -10,7 +10,9 @@ use App\Http\Requests\StoreTaskRequest;
 class TaskController extends Controller
 {
     /**
-     * List all tasks user has access to
+     * =========================
+     * LIST TASKS (WITH FILTERS)
+     * =========================
      */
     public function index(Request $request)
     {
@@ -28,19 +30,56 @@ class TaskController extends Controller
             });
         });
 
+        // =========================
+        // FILTERS
+        // =========================
+
+        // Project filter
         if ($request->filled('project_id')) {
             $query->where('project_id', $request->project_id);
         }
 
+        // Search (title)
+        if ($request->filled('search')) {
+            $query->where('title', 'like', '%' . $request->search . '%');
+        }
+
+        // Status
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
+        // Priority
+        if ($request->filled('priority')) {
+            $query->where('priority', $request->priority);
+        }
+
+        // Assignee
+        if ($request->filled('assignee_id')) {
+            $query->whereHas('assignees', function ($q) use ($request) {
+                $q->where('users.id', $request->assignee_id);
+            });
+        }
+
+        // Due date (exact date match)
+        if ($request->filled('due_date')) {
+            $query->whereDate('due_date', $request->due_date);
+        }
+
+        // =========================
+        // SORTING (OPTIONAL)
+        // =========================
         if ($request->filled('sort_by')) {
             $direction = $request->get('direction', 'asc');
             $query->orderBy($request->sort_by, $direction);
+        } else {
+            // Default sorting (latest first)
+            $query->latest();
         }
 
+        // =========================
+        // PAGINATION
+        // =========================
         $tasks = $query
             ->with([
                 'project:id,name',
@@ -60,14 +99,16 @@ class TaskController extends Controller
     }
 
     /**
-     * Create task
+     * =========================
+     * CREATE TASK
+     * =========================
      */
     public function store(StoreTaskRequest $request)
     {
         $user = $request->user();
         $data = $request->validated();
 
-        // If project task → enforce permission
+        // Project permission check
         if (!empty($data['project_id'])) {
 
             $project = Project::findOrFail($data['project_id']);
@@ -101,7 +142,9 @@ class TaskController extends Controller
     }
 
     /**
-     * Show single task
+     * =========================
+     * SHOW TASK
+     * =========================
      */
     public function show(Request $request, Task $task)
     {
@@ -121,7 +164,9 @@ class TaskController extends Controller
     }
 
     /**
-     * Update task (Partial payload)
+     * =========================
+     * UPDATE TASK
+     * =========================
      */
     public function update(Request $request, Task $task)
     {
@@ -147,7 +192,9 @@ class TaskController extends Controller
     }
 
     /**
-     * Delete task
+     * =========================
+     * DELETE TASK
+     * =========================
      */
     public function destroy(Request $request, Task $task)
     {
@@ -163,7 +210,9 @@ class TaskController extends Controller
     }
 
     /**
-     * Format task (STANDARDIZED RESPONSE)
+     * =========================
+     * FORMAT TASK
+     * =========================
      */
     private function formatTask($task)
     {
@@ -177,10 +226,8 @@ class TaskController extends Controller
             'created_at' => $task->created_at,
             'updated_at' => $task->updated_at,
 
-            // ✅ CRITICAL FOR OPTION A
             'project_id' => $task->project_id,
 
-            // Relations
             'project' => $task->project,
             'creator' => $task->creator,
             'assignees' => $task->assignees,
@@ -188,7 +235,9 @@ class TaskController extends Controller
     }
 
     /**
-     * Access control
+     * =========================
+     * AUTHORIZATION
+     * =========================
      */
     private function authorizeTaskAccess($user, Task $task)
     {

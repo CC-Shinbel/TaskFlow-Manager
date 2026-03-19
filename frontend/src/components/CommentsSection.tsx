@@ -13,8 +13,14 @@ interface Comment {
   };
 }
 
+interface PaginatedComments {
+  data: Comment[];
+  current_page: number;
+  last_page: number;
+}
+
 interface Props {
-  projectId?: number; // ✅ optional for Option A
+  projectId?: number;
   taskId?: number;
 }
 
@@ -26,11 +32,17 @@ const CommentsSection = ({ projectId, taskId }: Props) => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingContent, setEditingContent] = useState("");
 
+  // ✅ PAGINATION STATE
+  const [page, setPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
+
   // =========================
-  // BUILD PARAMS (SAFE)
+  // BUILD PARAMS
   // =========================
-  const buildParams = () => {
-    const params: any = {};
+  const buildParams = (pageNumber = 1) => {
+    const params: any = {
+      page: pageNumber
+    };
 
     if (projectId) params.project_id = projectId;
     if (taskId) params.task_id = taskId;
@@ -41,14 +53,18 @@ const CommentsSection = ({ projectId, taskId }: Props) => {
   // =========================
   // LOAD COMMENTS
   // =========================
-  const loadComments = async () => {
+  const loadComments = async (pageNumber = 1) => {
     try {
 
       const response = await api.get("/comments", {
-        params: buildParams()
+        params: buildParams(pageNumber)
       });
 
-      setComments(response.data.data);
+      const resData: PaginatedComments = response.data.data;
+
+      setComments(resData.data);
+      setPage(resData.current_page);
+      setLastPage(resData.last_page);
 
     } catch {
       toast.error("Failed to load comments");
@@ -56,7 +72,7 @@ const CommentsSection = ({ projectId, taskId }: Props) => {
   };
 
   useEffect(() => {
-    loadComments();
+    loadComments(1);
   }, [projectId, taskId]);
 
   // =========================
@@ -78,7 +94,9 @@ const CommentsSection = ({ projectId, taskId }: Props) => {
       await api.post("/comments", payload);
 
       setContent("");
-      loadComments();
+
+      // ✅ reload first page after new comment
+      loadComments(1);
 
     } catch (err: any) {
       console.error(err.response?.data);
@@ -112,7 +130,8 @@ const CommentsSection = ({ projectId, taskId }: Props) => {
 
       setEditingId(null);
       setEditingContent("");
-      loadComments();
+
+      loadComments(page);
 
       toast.success("Comment updated");
 
@@ -224,6 +243,31 @@ const CommentsSection = ({ projectId, taskId }: Props) => {
             </div>
           );
         })}
+
+      </div>
+
+      {/* ✅ PAGINATION CONTROLS */}
+      <div className="flex items-center justify-between mb-4">
+
+        <button
+          disabled={page === 1}
+          onClick={() => loadComments(page - 1)}
+          className="px-4 py-2 text-sm rounded-xl bg-white/20 hover:bg-white/30 disabled:opacity-40"
+        >
+          Previous
+        </button>
+
+        <span className="text-sm opacity-80">
+          Page {page} of {lastPage}
+        </span>
+
+        <button
+          disabled={page === lastPage}
+          onClick={() => loadComments(page + 1)}
+          className="px-4 py-2 text-sm rounded-xl bg-white/20 hover:bg-white/30 disabled:opacity-40"
+        >
+          Next
+        </button>
 
       </div>
 

@@ -27,13 +27,29 @@ class CommentController extends Controller
         $project = Project::findOrFail($validated['project_id']);
         $this->authorizeProjectMembership($user, $project);
 
-        $comments = Comment::where('project_id', $project->id)
-            ->when($validated['task_id'] ?? null, function ($query, $taskId) {
-                $query->where('task_id', $taskId);
-            })
+        // =========================
+        // FIXED FILTERING LOGIC
+        // =========================
+        $query = Comment::where('project_id', $project->id);
+
+        if (array_key_exists('task_id', $validated)) {
+
+            if ($validated['task_id'] !== null) {
+                // ✅ Task page → only task comments
+                $query->where('task_id', $validated['task_id']);
+            } else {
+                // ✅ Project page → only project-level comments
+                $query->whereNull('task_id');
+            }
+        } else {
+            // ✅ Fallback → project-level comments only
+            $query->whereNull('task_id');
+        }
+
+        $comments = $query
             ->with('user:id,name')
             ->latest()
-            ->get();
+            ->paginate(10);
 
         return response()->json([
             'status' => true,
@@ -62,7 +78,9 @@ class CommentController extends Controller
 
         $task = null;
 
-        // Validate task belongs to project
+        // =========================
+        // VALIDATE TASK BELONGS TO PROJECT
+        // =========================
         if (!empty($validated['task_id'])) {
 
             $task = Task::findOrFail($validated['task_id']);
@@ -179,7 +197,9 @@ class CommentController extends Controller
     {
         $notifiedUsers = collect();
 
-        // Task assignees
+        // =========================
+        // TASK ASSIGNEES
+        // =========================
         if ($task) {
 
             $task->load('assignees');
@@ -197,7 +217,9 @@ class CommentController extends Controller
             }
         }
 
-        // Project managers
+        // =========================
+        // PROJECT MANAGERS
+        // =========================
         $managers = $project->users()
             ->wherePivotIn('role', ['owner', 'co_owner', 'collaborator'])
             ->get();

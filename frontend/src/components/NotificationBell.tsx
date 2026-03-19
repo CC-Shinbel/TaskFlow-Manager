@@ -31,6 +31,8 @@ const NotificationBell = () => {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const allowedTypes = ["new_comment", "deadline"];
+
   /* ------------------ SOUND ------------------ */
 
   const playSound = () => {
@@ -58,7 +60,7 @@ const NotificationBell = () => {
     }
   };
 
-  /* ------------------ FETCH NEW ONLY ------------------ */
+  /* ------------------ FETCH NEW ------------------ */
 
   const fetchNewNotifications = async () => {
 
@@ -77,15 +79,9 @@ const NotificationBell = () => {
       playSound();
 
       setNotifications(prev => {
-
         const existingIds = new Set(prev.map(n => n.id));
-
-        const filtered = newNotifications.filter(
-          n => !existingIds.has(n.id)
-        );
-
+        const filtered = newNotifications.filter(n => !existingIds.has(n.id));
         return [...filtered, ...prev];
-
       });
 
       latestTimestamp.current = newNotifications[0].created_at;
@@ -99,7 +95,6 @@ const NotificationBell = () => {
   /* ------------------ INIT ------------------ */
 
   useEffect(() => {
-
     soundRef.current = new Howl({
       src: ["/sound/notify.mp3"],
       volume: 0.5
@@ -108,7 +103,6 @@ const NotificationBell = () => {
     fetchInitialNotifications();
 
     const interval = setInterval(fetchNewNotifications, 5000);
-
     return () => clearInterval(interval);
 
   }, []);
@@ -116,9 +110,7 @@ const NotificationBell = () => {
   /* ------------------ CLICK OUTSIDE ------------------ */
 
   useEffect(() => {
-
     const handleClickOutside = (event: MouseEvent) => {
-
       if (
         dropdownRef.current &&
         !dropdownRef.current.contains(event.target as Node) &&
@@ -126,19 +118,16 @@ const NotificationBell = () => {
       ) {
         setOpen(false);
       }
-
     };
 
     document.addEventListener("mousedown", handleClickOutside);
-
     return () => document.removeEventListener("mousedown", handleClickOutside);
 
   }, []);
 
-  /* ------------------ DROPDOWN POSITION ------------------ */
+  /* ------------------ DROPDOWN ------------------ */
 
   const toggleDropdown = () => {
-
     if (!buttonRef.current) return;
 
     const rect = buttonRef.current.getBoundingClientRect();
@@ -149,51 +138,9 @@ const NotificationBell = () => {
     });
 
     setOpen(!open);
-
   };
 
-  /* ------------------ CLICK NOTIFICATION ------------------ */
-
-  const handleNotificationClick = async (notification: Notification) => {
-
-    const data = notification.data;
-
-    try {
-
-      if (!notification.read_at) {
-        await api.post(`/notifications/${notification.id}/read`);
-
-        setNotifications(prev =>
-          prev.map(n =>
-            n.id === notification.id
-              ? { ...n, read_at: new Date().toISOString() }
-              : n
-          )
-        );
-      }
-
-      if (data.type === "new_comment" && data.project_id) {
-        navigate(`/projects/${data.project_id}`);
-      }
-
-    } catch (err) {
-      console.error("Notification click error", err);
-    }
-
-  };
-
-  /* ------------------ DELETE ------------------ */
-
-  const removeNotification = async (id: string) => {
-    try {
-      await api.delete(`/notifications/${id}`);
-      setNotifications(prev => prev.filter(n => n.id !== id));
-    } catch {
-      toast.error("Failed to delete notification");
-    }
-  };
-
-  /* ------------------ MARK READ ------------------ */
+  /* ------------------ MARK SINGLE ------------------ */
 
   const markAsRead = async (id: string) => {
     try {
@@ -210,48 +157,83 @@ const NotificationBell = () => {
     }
   };
 
-  /* ------------------ INVITES ------------------ */
+  /* ------------------ MARK ALL (FILTERED) ------------------ */
 
-  const acceptInvite = async (inviteId: number, notificationId: string) => {
+  const markAllAsRead = async () => {
     try {
-      await api.post(`/project-invites/${inviteId}/accept`);
-      await markAsRead(notificationId);
-      toast.success("Project invite accepted 🎉");
+
+      const toMark = notifications.filter(
+        n => !n.read_at && allowedTypes.includes(n.data.type)
+      );
+
+      await Promise.all(
+        toMark.map(n => api.post(`/notifications/${n.id}/read`))
+      );
+
+      setNotifications(prev =>
+        prev.map(n =>
+          allowedTypes.includes(n.data.type)
+            ? { ...n, read_at: n.read_at || new Date().toISOString() }
+            : n
+        )
+      );
+
+      toast.success("Notifications marked as read");
+
     } catch {
-      toast.error("Failed to accept invite");
+      toast.error("Failed to mark notifications");
     }
   };
 
-  const declineInvite = async (inviteId: number, notificationId: string) => {
+  /* ------------------ ACTIONS ------------------ */
+
+  const removeNotification = async (id: string) => {
     try {
-      await api.post(`/project-invites/${inviteId}/decline`);
-      await markAsRead(notificationId);
-      toast("Invite declined");
+      await api.delete(`/notifications/${id}`);
+      setNotifications(prev => prev.filter(n => n.id !== id));
     } catch {
-      toast.error("Failed to decline invite");
+      toast.error("Failed to delete notification");
     }
   };
 
-  /* ------------------ TASK ASSIGNMENT ------------------ */
+  const handleNotificationClick = async (notification: Notification) => {
+    const data = notification.data;
 
-  const acceptAssignment = async (requestId: number, notificationId: string) => {
     try {
-      await api.post(`/task-assignments/${requestId}/accept`);
-      await markAsRead(notificationId);
-      toast.success("Task accepted ✔️");
-    } catch {
-      toast.error("Failed to accept task");
+      if (!notification.read_at && allowedTypes.includes(data.type)) {
+        await markAsRead(notification.id);
+      }
+
+      if (data.type === "new_comment" && data.project_id) {
+        navigate(`/projects/${data.project_id}`);
+      }
+
+    } catch (err) {
+      console.error(err);
     }
   };
 
-  const declineAssignment = async (requestId: number, notificationId: string) => {
-    try {
-      await api.post(`/task-assignments/${requestId}/decline`);
-      await markAsRead(notificationId);
-      toast("Task declined");
-    } catch {
-      toast.error("Failed to decline task");
-    }
+  /* ------------------ INVITES / ASSIGNMENTS ------------------ */
+
+  const acceptInvite = async (id: number, notifId: string) => {
+    await api.post(`/project-invites/${id}/accept`);
+    await markAsRead(notifId);
+    toast.success("Accepted 🎉");
+  };
+
+  const declineInvite = async (id: number, notifId: string) => {
+    await api.post(`/project-invites/${id}/decline`);
+    await markAsRead(notifId);
+  };
+
+  const acceptAssignment = async (id: number, notifId: string) => {
+    await api.post(`/task-assignments/${id}/accept`);
+    await markAsRead(notifId);
+  };
+
+  const declineAssignment = async (id: number, notifId: string) => {
+    await api.post(`/task-assignments/${id}/decline`);
+    await markAsRead(notifId);
   };
 
   const unreadCount = notifications.filter(n => !n.read_at).length;
@@ -263,12 +245,11 @@ const NotificationBell = () => {
       <button
         ref={buttonRef}
         onClick={toggleDropdown}
-        className="relative p-2 text-white transition rounded-full hover:bg-white/20"
+        className="relative p-2 text-white rounded-full hover:bg-white/20"
       >
         🔔
-
         {unreadCount > 0 && (
-          <span className="absolute flex items-center justify-center w-5 h-5 text-xs text-white rounded-full -top-1 -right-1 bg-[var(--clr-primary-a0)]">
+          <span className="absolute w-5 h-5 text-xs flex items-center justify-center rounded-full -top-1 -right-1 bg-[var(--clr-primary-a0)]">
             {unreadCount}
           </span>
         )}
@@ -287,140 +268,111 @@ const NotificationBell = () => {
             className="w-[360px] p-4 border shadow-xl backdrop-blur-xl bg-white/30 border-white/20 rounded-2xl"
           >
 
-            <h3 className="mb-4 text-lg font-semibold text-white">
-              Notifications
-            </h3>
+            {/* HEADER */}
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">
+                Notifications
+              </h3>
 
-            {notifications.length === 0 ? (
-              <p className="text-sm text-white opacity-70">
-                No notifications
-              </p>
-            ) : (
-              <div className="space-y-3 max-h-[420px] overflow-y-auto custom-scrollbar pr-1">
+              <button
+                onClick={markAllAsRead}
+                className="px-3 py-1 text-xs text-white rounded-lg bg-white/20 hover:bg-white/30"
+              >
+                Mark all as Read
+              </button>
+            </div>
 
-                {notifications.map(notification => {
+            {/* LIST */}
+            <div className="space-y-3 max-h-[420px] overflow-y-auto custom-scrollbar pr-1">
 
-                  const data = notification.data;
+              {notifications.map(n => {
+                const d = n.data;
+                const isUnread = !n.read_at;
+                const isMarkable = allowedTypes.includes(d.type);
 
-                  return (
-                    <div
-                      key={notification.id}
-                      onClick={() => handleNotificationClick(notification)}
-                      className={`relative p-4 rounded-xl bg-white/10 text-sm text-white cursor-pointer hover:bg-white/20 transition ${
-                        notification.read_at ? "opacity-70" : ""
-                      }`}
+                return (
+                  <div
+                    key={n.id}
+                    onClick={() => handleNotificationClick(n)}
+                    className={`relative p-4 rounded-xl text-sm text-white cursor-pointer transition
+                      ${
+                        isUnread
+                          ? "bg-white/20 border border-[var(--clr-primary-a0)]/40"
+                          : "bg-white/10 opacity-70"
+                      }
+                    `}
+                  >
+
+                    {/* DOT */}
+                    {isUnread && (
+                      <span className="absolute w-2 h-2 bg-[var(--clr-primary-a0)] rounded-full top-2 left-2" />
+                    )}
+
+                    {/* DELETE */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeNotification(n.id);
+                      }}
+                      className="absolute text-xs top-2 right-2 opacity-60"
                     >
+                      ✕
+                    </button>
 
-                      {/* DELETE */}
+                    {/* CONTENT */}
+                    <p className={isUnread ? "font-medium" : ""}>
+                      {d.type === "new_comment" && (
+                        <>
+                          <span className="font-semibold">{d.user_name}</span> commented
+                        </>
+                      )}
+
+                      {d.type === "project_invite" && (
+                        <>
+                          <span className="font-semibold">{d.project_name}</span> invite
+                        </>
+                      )}
+
+                      {d.type === "task_assignment" && (
+                        <>
+                          Assigned: <span className="font-semibold">{d.task_title}</span>
+                        </>
+                      )}
+                    </p>
+
+                    {/* MARK AS READ (ONLY ALLOWED TYPES) */}
+                    {isUnread && isMarkable && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          removeNotification(notification.id);
+                          markAsRead(n.id);
                         }}
-                        className="absolute text-xs opacity-60 top-2 right-2 hover:opacity-100"
+                        className="px-2 py-1 mt-2 text-xs rounded-lg bg-white/20 hover:bg-white/30"
                       >
-                        ✕
+                        Mark as read
                       </button>
+                    )}
 
-                      {/* PROJECT INVITE */}
-                      {data.type === "project_invite" && (
-                        <>
-                          <p>
-                            <span className="font-semibold">
-                              {data.invited_by_name}
-                            </span>{" "}
-                            invited you to{" "}
-                            <span className="font-semibold">
-                              {data.project_name}
-                            </span>
-                          </p>
+                    {/* ACTIONS */}
+                    {d.type === "project_invite" && isUnread && (
+                      <div className="flex gap-2 mt-2">
+                        <button onClick={(e)=>{e.stopPropagation();acceptInvite(d.invite_id,n.id)}} className="px-2 py-1 text-xs bg-[var(--clr-primary-a0)] rounded-lg">Accept</button>
+                        <button onClick={(e)=>{e.stopPropagation();declineInvite(d.invite_id,n.id)}} className="px-2 py-1 text-xs rounded-lg bg-white/20">Decline</button>
+                      </div>
+                    )}
 
-                          {!notification.read_at && (
-                            <div className="flex gap-2 mt-3">
+                    {d.type === "task_assignment" && isUnread && (
+                      <div className="flex gap-2 mt-2">
+                        <button onClick={(e)=>{e.stopPropagation();acceptAssignment(d.request_id,n.id)}} className="px-2 py-1 text-xs bg-[var(--clr-primary-a0)] rounded-lg">Accept</button>
+                        <button onClick={(e)=>{e.stopPropagation();declineAssignment(d.request_id,n.id)}} className="px-2 py-1 text-xs rounded-lg bg-white/20">Decline</button>
+                      </div>
+                    )}
 
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  acceptInvite(data.invite_id, notification.id);
-                                }}
-                                className="px-3 py-1 text-xs font-semibold rounded-lg bg-[var(--clr-primary-a0)]"
-                              >
-                                Accept
-                              </button>
+                  </div>
+                );
+              })}
 
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  declineInvite(data.invite_id, notification.id);
-                                }}
-                                className="px-3 py-1 text-xs rounded-lg bg-white/20"
-                              >
-                                Decline
-                              </button>
-
-                            </div>
-                          )}
-                        </>
-                      )}
-
-                      {/* TASK ASSIGNMENT */}
-                      {data.type === "task_assignment" && (
-                        <>
-                          <p>
-                            <span className="font-semibold">
-                              {data.assigned_by_name}
-                            </span>{" "}
-                            assigned you to{" "}
-                            <span className="font-semibold">
-                              {data.task_title}
-                            </span>
-                          </p>
-
-                          {!notification.read_at && (
-                            <div className="flex gap-2 mt-3">
-
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  acceptAssignment(data.request_id, notification.id);
-                                }}
-                                className="px-3 py-1 text-xs font-semibold rounded-lg bg-[var(--clr-primary-a0)]"
-                              >
-                                Accept
-                              </button>
-
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  declineAssignment(data.request_id, notification.id);
-                                }}
-                                className="px-3 py-1 text-xs rounded-lg bg-white/20"
-                              >
-                                Decline
-                              </button>
-
-                            </div>
-                          )}
-                        </>
-                      )}
-
-                      {/* COMMENT */}
-                      {data.type === "new_comment" && (
-                        <p>
-                          <span className="font-semibold">
-                            {data.user_name}
-                          </span>{" "}
-                          commented on a task
-                        </p>
-                      )}
-
-                    </div>
-                  );
-
-                })}
-
-              </div>
-            )}
+            </div>
 
           </div>,
           document.body
