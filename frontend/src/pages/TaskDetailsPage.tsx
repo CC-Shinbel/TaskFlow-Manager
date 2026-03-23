@@ -52,8 +52,29 @@ const TaskDetailsPage = () => {
 
       const user = JSON.parse(localStorage.getItem("user") || "{}");
 
-      // ✅ Permission (creator only)
-      setCanEdit(taskData.creator?.id === user.id);
+      // =========================
+      // ✅ NEW PERMISSION LOGIC
+      // =========================
+
+      // Personal task → creator only
+      if (!taskData.project_id) {
+        setCanEdit(taskData.creator?.id === user.id);
+        return;
+      }
+
+      // Project task → check role
+      try {
+        const projectRes = await api.get(`/projects/${taskData.project_id}`);
+        const role = projectRes.data.data.current_user_role;
+
+        const allowedRoles = ["owner", "co_owner", "collaborator"];
+
+        setCanEdit(allowedRoles.includes(role));
+
+      } catch (err) {
+        console.error("Failed to fetch project role:", err);
+        setCanEdit(false);
+      }
 
     } catch (err) {
       console.error("Failed to load task:", err);
@@ -87,9 +108,7 @@ const TaskDetailsPage = () => {
   return (
     <div className="flex flex-col h-full p-8 space-y-8">
 
-      {/* =========================
-          TASK HEADER
-      ========================= */}
+      {/* TASK HEADER */}
       <div className="p-8 text-white border shadow-xl backdrop-blur-xl bg-white/30 border-white/20 rounded-2xl">
 
         <div className="flex items-start justify-between">
@@ -104,6 +123,7 @@ const TaskDetailsPage = () => {
             </p>
           </div>
 
+          {/* ✅ UPDATED PERMISSION */}
           {canEdit && (
             <button
               onClick={() => setEditOpen(true)}
@@ -114,9 +134,7 @@ const TaskDetailsPage = () => {
           )}
         </div>
 
-        {/* =========================
-            DETAILS GRID
-        ========================= */}
+        {/* DETAILS */}
         <div className="grid grid-cols-2 gap-6 mt-6 text-sm">
 
           <div>
@@ -161,17 +179,13 @@ const TaskDetailsPage = () => {
 
       </div>
 
-      {/* =========================
-          COMMENTS (OPTION A)
-      ========================= */}
+      {/* COMMENTS */}
       {task.project_id ? (
         <div className="flex flex-col flex-1 p-8 text-white border shadow-xl backdrop-blur-xl bg-white/30 border-white/20 rounded-2xl">
-
           <CommentsSection
             taskId={task.id}
             projectId={task.project_id}
           />
-
         </div>
       ) : (
         <div className="p-6 text-sm text-white border rounded-xl bg-white/20 border-white/20">
@@ -179,9 +193,7 @@ const TaskDetailsPage = () => {
         </div>
       )}
 
-      {/* =========================
-          EDIT MODAL
-      ========================= */}
+      {/* MODAL */}
       <EditTaskModal
         taskId={task.id}
         isOpen={editOpen}

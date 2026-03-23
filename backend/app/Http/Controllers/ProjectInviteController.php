@@ -11,15 +11,23 @@ class ProjectInviteController extends Controller
     //
     public function accept(ProjectInvite $invite)
     {
+        // ✅ Prevent re-accept / re-decline
+        if ($invite->status !== 'pending') {
+            return response()->json([
+                'status' => false,
+                'message' => 'Invite already handled'
+            ], 400);
+        }
 
+        // ✅ Update status
         $invite->update([
             'status' => 'accepted'
         ]);
 
-        $invite->project->users()->attach(
-            $invite->user_id,
-            ['role' => $invite->role]
-        );
+        // ✅ Prevent duplicate pivot entries
+        $invite->project->users()->syncWithoutDetaching([
+            $invite->user_id => ['role' => $invite->role]
+        ]);
 
         return response()->json([
             'status' => true,

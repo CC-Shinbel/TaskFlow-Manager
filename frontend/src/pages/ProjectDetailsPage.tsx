@@ -8,6 +8,7 @@ import CommentsSection from "../components/CommentsSection";
 import CreateTaskModal from "../components/CreateTaskModal";
 import ProjectMembersPanel from "../components/ProjectMembersPanel";
 import GlassDropdown from "../components/GlassDropdown";
+import { useAuth } from "../hooks/UseAuth"; // ✅ ADDED
 
 interface Project {
   id: number;
@@ -42,6 +43,7 @@ interface Member {
 const ProjectDetailsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth(); // ✅ ADDED
 
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -53,6 +55,18 @@ const ProjectDetailsPage = () => {
 
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isMembersPanelOpen, setIsMembersPanelOpen] = useState(false);
+
+  // =========================
+  // ROLE PERMISSIONS ✅ ADDED
+  // =========================
+  const canCreateTask =
+    ["owner", "co_owner", "collaborator"].includes(currentUserRole);
+
+  const canManageUsers =
+    ["owner", "co_owner"].includes(currentUserRole);
+
+  const canEditAllTasks =
+    ["owner", "co_owner", "collaborator"].includes(currentUserRole);
 
   // FILTER STATES
   const [search, setSearch] = useState("");
@@ -97,7 +111,7 @@ const ProjectDetailsPage = () => {
     }
   }, [id]);
 
-  // LOAD TASKS (SERVER FILTERING)
+  // LOAD TASKS
   const loadTasks = useCallback(async (pageNumber = 1) => {
     try {
       const resData = await taskService.getTasks({
@@ -129,13 +143,11 @@ const ProjectDetailsPage = () => {
     }
   };
 
-  // INITIAL LOAD
   useEffect(() => {
     if (!id) return;
     loadProject();
   }, [id, loadProject]);
 
-  // LOAD TASKS WHEN FILTERS CHANGE
   useEffect(() => {
     if (!id) return;
     setPage(1);
@@ -164,17 +176,19 @@ const ProjectDetailsPage = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => setIsTaskModalOpen(true)}
-          className="px-6 py-3 rounded-xl bg-[var(--clr-primary-a0)] hover:bg-[var(--clr-primary-a10)] text-white font-semibold transition"
-        >
-          + Create Task
-        </button>
+        {/* ✅ CREATE TASK PERMISSION */}
+        {canCreateTask && (
+          <button
+            onClick={() => setIsTaskModalOpen(true)}
+            className="px-6 py-3 rounded-xl bg-[var(--clr-primary-a0)] hover:bg-[var(--clr-primary-a10)] text-white font-semibold transition"
+          >
+            + Create Task
+          </button>
+        )}
       </div>
 
       {/* FILTER BAR */}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
-
         <input
           placeholder="Search..."
           value={search}
@@ -182,10 +196,7 @@ const ProjectDetailsPage = () => {
           className="px-3 py-2 text-white border rounded-xl bg-white/20 border-white/30 placeholder-white/60"
         />
 
-        <GlassDropdown
-          value={statusFilter}
-          onChange={setStatusFilter}
-          placeholder="Status"
+        <GlassDropdown value={statusFilter} onChange={setStatusFilter} placeholder="Status"
           options={[
             { label: "Pending", value: "pending" },
             { label: "In Progress", value: "in_progress" },
@@ -193,10 +204,7 @@ const ProjectDetailsPage = () => {
           ]}
         />
 
-        <GlassDropdown
-          value={priorityFilter}
-          onChange={setPriorityFilter}
-          placeholder="Priority"
+        <GlassDropdown value={priorityFilter} onChange={setPriorityFilter} placeholder="Priority"
           options={[
             { label: "Low", value: "low" },
             { label: "Medium", value: "medium" },
@@ -204,16 +212,10 @@ const ProjectDetailsPage = () => {
           ]}
         />
 
-        <GlassDropdown
-          value={assigneeFilter}
-          onChange={setAssigneeFilter}
-          placeholder="Assignee"
+        <GlassDropdown value={assigneeFilter} onChange={setAssigneeFilter} placeholder="Assignee"
           options={[
             { label: "All", value: "" },
-            ...members.map(m => ({
-              label: m.name,
-              value: String(m.id)
-            }))
+            ...members.map(m => ({ label: m.name, value: String(m.id) }))
           ]}
         />
 
@@ -230,9 +232,7 @@ const ProjectDetailsPage = () => {
         {/* TASKS */}
         <div className="p-8 text-white border shadow-xl xl:col-span-2 backdrop-blur-xl bg-white/30 border-white/20 rounded-2xl">
 
-          <h2 className="mb-6 text-xl font-semibold">
-            Project Tasks
-          </h2>
+          <h2 className="mb-6 text-xl font-semibold">Project Tasks</h2>
 
           {tasks.length === 0 ? (
             <p className="opacity-70">No tasks found.</p>
@@ -240,60 +240,67 @@ const ProjectDetailsPage = () => {
             <>
               <div className="space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar pr-1">
 
-                {tasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className="p-5 transition bg-white/10 rounded-xl hover:bg-white/20"
-                  >
+                {tasks.map((task) => {
 
-                    <div onClick={() => navigate(`/tasks/${task.id}`)}>
-                      <h3 className="text-lg font-semibold">{task.title}</h3>
-                      <p className="text-sm opacity-80">{task.description}</p>
-                    </div>
+                  const isAssignedToUser =
+                    task.assignees?.some(a => a.id === user?.id);
 
-                    <div className="grid grid-cols-2 gap-2 mt-3 text-xs opacity-80">
-                      <span>Created: {formatDate(task.created_at)}</span>
-                      <span>Updated: {formatDate(task.updated_at)}</span>
-                      <span>Due: {formatDate(task.due_date)}</span>
-                      <span>By: {task.creator?.name || "Unknown"}</span>
-                    </div>
+                  const canEditThisTask =
+                    canEditAllTasks || isAssignedToUser;
 
-                    <div className="flex items-center justify-between mt-4">
+                  return (
+                    <div key={task.id} className="p-5 transition bg-white/10 rounded-xl hover:bg-white/20">
 
-                      <span className={`text-sm font-medium px-2 py-1 rounded-lg ${getStatusColor(task.status)}`}>
-                        {formatStatus(task.status)}
-                      </span>
-
-                      <div className="flex gap-2">
-                        {["pending", "in_progress", "completed"].map((s) => (
-                          <button
-                            key={s}
-                            onClick={() => updateTaskStatus(task.id, s)}
-                            className={`px-2 py-1 text-xs rounded-lg transition ${
-                              task.status === s
-                                ? "bg-[var(--clr-primary-a0)]"
-                                : "bg-white/20 hover:bg-white/30"
-                            }`}
-                          >
-                            {formatStatus(s)}
-                          </button>
-                        ))}
+                      <div onClick={() => navigate(`/tasks/${task.id}`)}>
+                        <h3 className="text-lg font-semibold">{task.title}</h3>
+                        <p className="text-sm opacity-80">{task.description}</p>
                       </div>
 
-                    </div>
-
-                    <div className="mt-2 text-xs capitalize opacity-80">
-                      Priority: {task.priority || "None"}
-                    </div>
-
-                    {task.assignees?.length > 0 && (
-                      <div className="mt-2 text-xs opacity-80">
-                        Assigned to: {task.assignees.map(u => u.name).join(", ")}
+                      <div className="grid grid-cols-2 gap-2 mt-3 text-xs opacity-80">
+                        <span>Created: {formatDate(task.created_at)}</span>
+                        <span>Updated: {formatDate(task.updated_at)}</span>
+                        <span>Due: {formatDate(task.due_date)}</span>
+                        <span>By: {task.creator?.name || "Unknown"}</span>
                       </div>
-                    )}
 
-                  </div>
-                ))}
+                      <div className="flex items-center justify-between mt-4">
+
+                        <span className={`text-sm font-medium px-2 py-1 rounded-lg ${getStatusColor(task.status)}`}>
+                          {formatStatus(task.status)}
+                        </span>
+
+                        <div className="flex gap-2">
+                          {["pending", "in_progress", "completed"].map((s) => (
+                            <button
+                              key={s}
+                              onClick={() => canEditThisTask && updateTaskStatus(task.id, s)}
+                              disabled={!canEditThisTask}
+                              className={`px-2 py-1 text-xs rounded-lg transition ${
+                                task.status === s
+                                  ? "bg-[var(--clr-primary-a0)]"
+                                  : "bg-white/20 hover:bg-white/30"
+                              } ${!canEditThisTask ? "opacity-40 cursor-not-allowed" : ""}`}
+                            >
+                              {formatStatus(s)}
+                            </button>
+                          ))}
+                        </div>
+
+                      </div>
+
+                      <div className="mt-2 text-xs capitalize opacity-80">
+                        Priority: {task.priority || "None"}
+                      </div>
+
+                      {task.assignees?.length > 0 && (
+                        <div className="mt-2 text-xs opacity-80">
+                          Assigned to: {task.assignees.map(u => u.name).join(", ")}
+                        </div>
+                      )}
+
+                    </div>
+                  );
+                })}
 
               </div>
 
@@ -324,16 +331,20 @@ const ProjectDetailsPage = () => {
 
         </div>
 
-        {/* MEMBERS (UNCHANGED) */}
+        {/* MEMBERS */}
         <div className="flex flex-col h-full p-6 text-white border shadow-xl backdrop-blur-xl bg-white/30 border-white/20 rounded-2xl">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">Project Members</h3>
-            <button
-              onClick={() => setIsMembersPanelOpen(true)}
-              className="px-4 py-2 text-sm rounded-xl bg-[var(--clr-primary-a0)] hover:bg-[var(--clr-primary-a10)] text-white font-semibold transition"
-            >
-              Manage
-            </button>
+
+            {/* ✅ MANAGE BUTTON PERMISSION */}
+            {canManageUsers && (
+              <button
+                onClick={() => setIsMembersPanelOpen(true)}
+                className="px-4 py-2 text-sm rounded-xl bg-[var(--clr-primary-a0)] hover:bg-[var(--clr-primary-a10)] text-white font-semibold transition"
+              >
+                Manage
+              </button>
+            )}
           </div>
 
           <div className="flex-1 pr-1 space-y-2 overflow-y-auto custom-scrollbar">

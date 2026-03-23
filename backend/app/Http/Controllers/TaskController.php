@@ -18,62 +18,62 @@ class TaskController extends Controller
     {
         $user = $request->user();
 
-        $query = Task::where(function ($query) use ($user) {
+        //FIX: ADMIN CAN SEE ALL TASKS
+        if ($user->isAdmin()) {
 
-            // Personal tasks
-            $query->whereNull('project_id')
-                ->where('created_by', $user->id);
+            $query = Task::query();
+        } else {
 
-            // Project tasks
-            $query->orWhereHas('project.users', function ($q) use ($user) {
-                $q->where('project_user.user_id', $user->id);
+            $query = Task::where(function ($query) use ($user) {
+
+                // Personal tasks
+                $query->whereNull('project_id')
+                    ->where('created_by', $user->id);
+
+                // Project tasks
+                $query->orWhereHas('project.users', function ($q) use ($user) {
+                    $q->where('project_user.user_id', $user->id);
+                });
             });
-        });
+        }
 
         // =========================
         // FILTERS
         // =========================
 
-        // Project filter
         if ($request->filled('project_id')) {
             $query->where('project_id', $request->project_id);
         }
 
-        // Search (title)
         if ($request->filled('search')) {
             $query->where('title', 'like', '%' . $request->search . '%');
         }
 
-        // Status
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
-        // Priority
         if ($request->filled('priority')) {
             $query->where('priority', $request->priority);
         }
 
-        // Assignee
         if ($request->filled('assignee_id')) {
             $query->whereHas('assignees', function ($q) use ($request) {
                 $q->where('users.id', $request->assignee_id);
             });
         }
 
-        // Due date (exact date match)
         if ($request->filled('due_date')) {
             $query->whereDate('due_date', $request->due_date);
         }
 
         // =========================
-        // SORTING (OPTIONAL)
+        // SORTING
         // =========================
         if ($request->filled('sort_by')) {
             $direction = $request->get('direction', 'asc');
             $query->orderBy($request->sort_by, $direction);
         } else {
-            // Default sorting (latest first)
             $query->latest();
         }
 
@@ -108,7 +108,6 @@ class TaskController extends Controller
         $user = $request->user();
         $data = $request->validated();
 
-        // Project permission check
         if (!empty($data['project_id'])) {
 
             $project = Project::findOrFail($data['project_id']);

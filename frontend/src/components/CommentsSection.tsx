@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
 import toast from "react-hot-toast";
+import { useAuth } from "../hooks/UseAuth";
 
 interface Comment {
   id: number;
@@ -26,13 +27,14 @@ interface Props {
 
 const CommentsSection = ({ projectId, taskId }: Props) => {
 
+  const { user } = useAuth(); // ✅ current user
+
   const [comments, setComments] = useState<Comment[]>([]);
   const [content, setContent] = useState("");
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingContent, setEditingContent] = useState("");
 
-  // ✅ PAGINATION STATE
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
 
@@ -55,7 +57,6 @@ const CommentsSection = ({ projectId, taskId }: Props) => {
   // =========================
   const loadComments = async (pageNumber = 1) => {
     try {
-
       const response = await api.get("/comments", {
         params: buildParams(pageNumber)
       });
@@ -94,8 +95,6 @@ const CommentsSection = ({ projectId, taskId }: Props) => {
       await api.post("/comments", payload);
 
       setContent("");
-
-      // ✅ reload first page after new comment
       loadComments(1);
 
     } catch (err: any) {
@@ -109,6 +108,13 @@ const CommentsSection = ({ projectId, taskId }: Props) => {
   // EDIT
   // =========================
   const startEdit = (comment: Comment) => {
+
+    // ✅ safety check
+    if (user?.id !== comment.user?.id) {
+      toast.error("You can only edit your own comments");
+      return;
+    }
+
     setEditingId(comment.id);
     setEditingContent(comment.content);
   };
@@ -167,10 +173,12 @@ const CommentsSection = ({ projectId, taskId }: Props) => {
             comment.updated_at &&
             comment.updated_at !== comment.created_at;
 
+          const isOwner = user?.id === comment.user?.id;
+
           return (
             <div
               key={comment.id}
-              className="p-4 bg-white/20 rounded-xl"
+              className="p-4 bg-white/20 rounded-xl group" // ✅ group for hover
             >
 
               {/* HEADER */}
@@ -180,6 +188,9 @@ const CommentsSection = ({ projectId, taskId }: Props) => {
 
                   <span className="font-semibold">
                     {comment.user?.name || "Unknown"}
+                    {isOwner && (
+                      <span className="ml-1 italic opacity-60">(You)</span>
+                    )}
                   </span>
 
                   <span>
@@ -194,12 +205,15 @@ const CommentsSection = ({ projectId, taskId }: Props) => {
 
                 </div>
 
-                <button
-                  onClick={() => startEdit(comment)}
-                  className="text-xs opacity-60 hover:opacity-100"
-                >
-                  Edit
-                </button>
+                {/* ✅ EDIT BUTTON (OWNER ONLY + HOVER) */}
+                {isOwner && (
+                  <button
+                    onClick={() => startEdit(comment)}
+                    className="text-xs transition opacity-0 group-hover:opacity-100"
+                  >
+                    Edit
+                  </button>
+                )}
 
               </div>
 
@@ -246,7 +260,7 @@ const CommentsSection = ({ projectId, taskId }: Props) => {
 
       </div>
 
-      {/* ✅ PAGINATION CONTROLS */}
+      {/* PAGINATION */}
       <div className="flex items-center justify-between mb-4">
 
         <button

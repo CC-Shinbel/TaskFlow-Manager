@@ -165,7 +165,7 @@ class ProjectController extends Controller
 
         // Send notification
         $user->notify(
-            new ProjectInviteNotification($project, $request->user())
+            new ProjectInviteNotification($project, $request->user(), $invite)
         );
 
         return response()->json([

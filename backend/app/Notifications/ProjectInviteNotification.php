@@ -11,39 +11,32 @@ class ProjectInviteNotification extends Notification
 
     protected $project;
     protected $invitedBy;
+    protected $invite;
 
-    /**
-     * Create a new notification instance.
-     */
-    public function __construct($project, $invitedBy)
+    public function __construct($project, $invitedBy, $invite)
     {
         $this->project = $project;
         $this->invitedBy = $invitedBy;
+        $this->invite = $invite;
     }
 
-    /**
-     * Notification channels
-     */
     public function via($notifiable)
     {
         return ['database'];
     }
 
-    /**
-     * Data stored in notifications table
-     */
     public function toDatabase($notifiable)
     {
         return [
-
             'type' => 'project_invite',
+
+            'invite_id' => $this->invite->id,
 
             'project_id' => $this->project->id,
             'project_name' => $this->project->name,
 
             'invited_by_id' => $this->invitedBy->id,
             'invited_by_name' => $this->invitedBy->name
-
         ];
     }
 }
