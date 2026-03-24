@@ -7,22 +7,28 @@ use App\Models\User;
 use App\Models\TaskAssignmentRequest;
 use Illuminate\Http\Request;
 use App\Notifications\TaskAssignmentRequestNotification;
+use Illuminate\Support\Facades\Gate;
 
 class TaskAssignmentController extends Controller
 {
-
     /**
-     * Send task assignment request
+     * =========================
+     * SEND TASK ASSIGNMENT REQUEST
+     * =========================
      */
-    public function store(Request $request, Task $task)
+    public function store(Request $request, $taskId)
     {
+        $user = $request->user();
+
+        $task = Task::findOrFail($taskId);
+        // 🔒 POLICY
+        Gate::authorize('assign-task', $task);
+
         $user = $request->user();
 
         $request->validate([
             'user_id' => 'required|exists:users,id'
         ]);
-
-        $this->authorizeAssignment($user, $task);
 
         $targetUser = User::findOrFail($request->user_id);
 
@@ -31,7 +37,6 @@ class TaskAssignmentController extends Controller
         | Prevent duplicate assignment
         |--------------------------------------------------------------------------
         */
-
         if ($task->assignees()->where('users.id', $targetUser->id)->exists()) {
             return response()->json([
                 'status' => false,
@@ -44,7 +49,6 @@ class TaskAssignmentController extends Controller
         | Prevent duplicate request
         |--------------------------------------------------------------------------
         */
-
         $existingRequest = TaskAssignmentRequest::where([
             'task_id' => $task->id,
             'user_id' => $targetUser->id
@@ -62,7 +66,6 @@ class TaskAssignmentController extends Controller
         | Create assignment request
         |--------------------------------------------------------------------------
         */
-
         $assignmentRequest = TaskAssignmentRequest::create([
             'task_id' => $task->id,
             'user_id' => $targetUser->id,
@@ -75,7 +78,6 @@ class TaskAssignmentController extends Controller
         | Send notification
         |--------------------------------------------------------------------------
         */
-
         $targetUser->notify(
             new TaskAssignmentRequestNotification(
                 $task,
@@ -91,34 +93,41 @@ class TaskAssignmentController extends Controller
     }
 
     /**
-     * Accept assignment
+     * =========================
+     * ACCEPT ASSIGNMENT
+     * =========================
      */
     public function accept(Request $request, TaskAssignmentRequest $assignment)
     {
-        $user = $request->user();
+        // 🔒 POLICY
+        $this->authorize('accept', $assignment);
 
-        if ($assignment->user_id !== $user->id) {
-            abort(403, 'Unauthorized action.');
+        // Prevent double processing
+        if ($assignment->status !== 'pending') {
+            return response()->json([
+                'status' => false,
+                'message' => 'Assignment already processed'
+            ], 400);
         }
 
         $task = Task::findOrFail($assignment->task_id);
 
         /*
         |--------------------------------------------------------------------------
-        | Assign user to task
+        | Assign user to task (avoid duplicate)
         |--------------------------------------------------------------------------
         */
-
-        $task->assignees()->attach($user->id, [
-            'assigned_by' => $assignment->assigned_by
-        ]);
+        if (!$task->assignees()->where('users.id', $assignment->user_id)->exists()) {
+            $task->assignees()->attach($assignment->user_id, [
+                'assigned_by' => $assignment->assigned_by
+            ]);
+        }
 
         /*
         |--------------------------------------------------------------------------
         | Remove request
         |--------------------------------------------------------------------------
         */
-
         $assignment->delete();
 
         return response()->json([
@@ -128,14 +137,20 @@ class TaskAssignmentController extends Controller
     }
 
     /**
-     * Decline assignment
+     * =========================
+     * DECLINE ASSIGNMENT
+     * =========================
      */
     public function decline(Request $request, TaskAssignmentRequest $assignment)
     {
-        $user = $request->user();
+        // 🔒 POLICY
+        $this->authorize('decline', $assignment);
 
-        if ($assignment->user_id !== $user->id) {
-            abort(403, 'Unauthorized action.');
+        if ($assignment->status !== 'pending') {
+            return response()->json([
+                'status' => false,
+                'message' => 'Assignment already processed'
+            ], 400);
         }
 
         $assignment->delete();
@@ -147,16 +162,20 @@ class TaskAssignmentController extends Controller
     }
 
     /**
-     * Remove user from task
+     * =========================
+     * REMOVE USER FROM TASK
+     * =========================
      */
     public function destroy(Request $request, Task $task, User $userToRemove)
     {
-        $user = $request->user();
+        // 🔒 POLICY (self OR manager)
+        $this->authorize('remove', [$task, $userToRemove]);
 
-        if ($user->id !== $userToRemove->id) {
-            $this->authorizeAssignment($user, $task);
-        }
-
+        /*
+        |--------------------------------------------------------------------------
+        | Prevent removing creator from personal task
+        |--------------------------------------------------------------------------
+        */
         if (is_null($task->project_id) && $task->created_by === $userToRemove->id) {
             abort(403, 'Cannot remove creator from personal task.');
         }
@@ -167,29 +186,5 @@ class TaskAssignmentController extends Controller
             'status' => true,
             'message' => 'User removed from task'
         ]);
-    }
-
-    /**
-     * Authorization logic
-     */
-    private function authorizeAssignment($user, Task $task)
-    {
-        if (is_null($task->project_id)) {
-
-            if ($task->created_by !== $user->id) {
-                abort(403, 'Only creator can assign users.');
-            }
-
-            return;
-        }
-
-        $role = $task->project
-            ->users()
-            ->where('project_user.user_id', $user->id)
-            ->value('project_user.role');
-
-        if (!in_array($role, ['owner', 'co_owner', 'collaborator'])) {
-            abort(403, 'Insufficient project permissions.');
-        }
     }
 }

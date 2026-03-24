@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Task;
-use App\Models\Project;
 use Illuminate\Http\Request;
 use App\Http\Requests\StoreTaskRequest;
 
@@ -18,12 +17,10 @@ class TaskController extends Controller
     {
         $user = $request->user();
 
-        //FIX: ADMIN CAN SEE ALL TASKS
+        // ADMIN → see all tasks
         if ($user->isAdmin()) {
-
             $query = Task::query();
         } else {
-
             $query = Task::where(function ($query) use ($user) {
 
                 // Personal tasks
@@ -87,9 +84,7 @@ class TaskController extends Controller
                 'assignees:id,name'
             ])
             ->paginate(10)
-            ->through(function ($task) {
-                return $this->formatTask($task);
-            });
+            ->through(fn($task) => $this->formatTask($task));
 
         return response()->json([
             'status' => true,
@@ -108,18 +103,8 @@ class TaskController extends Controller
         $user = $request->user();
         $data = $request->validated();
 
-        if (!empty($data['project_id'])) {
-
-            $project = Project::findOrFail($data['project_id']);
-
-            $role = $project->users()
-                ->where('project_user.user_id', $user->id)
-                ->value('project_user.role');
-
-            if (!in_array($role, ['owner', 'co_owner', 'collaborator'])) {
-                abort(403, 'Not allowed to create tasks in this project.');
-            }
-        }
+        // ✅ POLICY CHECK
+        $this->authorize('create', [Task::class, $data['project_id'] ?? null]);
 
         $task = Task::create([
             'project_id' => $data['project_id'] ?? null,
@@ -147,7 +132,8 @@ class TaskController extends Controller
      */
     public function show(Request $request, Task $task)
     {
-        $this->authorizeTaskAccess($request->user(), $task);
+        // ✅ POLICY CHECK
+        $this->authorize('view', $task);
 
         $task->load([
             'project:id,name',
@@ -169,7 +155,8 @@ class TaskController extends Controller
      */
     public function update(Request $request, Task $task)
     {
-        $this->authorizeTaskAccess($request->user(), $task);
+        // ✅ POLICY CHECK
+        $this->authorize('update', $task);
 
         $validated = $request->validate([
             'title' => 'sometimes|string|max:255',
@@ -197,7 +184,8 @@ class TaskController extends Controller
      */
     public function destroy(Request $request, Task $task)
     {
-        $this->authorizeTaskAccess($request->user(), $task);
+        // ✅ POLICY CHECK
+        $this->authorize('delete', $task);
 
         $task->delete();
 
@@ -231,31 +219,5 @@ class TaskController extends Controller
             'creator' => $task->creator,
             'assignees' => $task->assignees,
         ];
-    }
-
-    /**
-     * =========================
-     * AUTHORIZATION
-     * =========================
-     */
-    private function authorizeTaskAccess($user, Task $task)
-    {
-        if (is_null($task->project_id)) {
-
-            if ($task->created_by !== $user->id) {
-                abort(403, 'Unauthorized personal task access.');
-            }
-
-            return;
-        }
-
-        $isMember = $task->project
-            ->users()
-            ->where('project_user.user_id', $user->id)
-            ->exists();
-
-        if (!$isMember) {
-            abort(403, 'Unauthorized project task access.');
-        }
     }
 }

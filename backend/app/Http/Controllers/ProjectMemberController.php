@@ -8,10 +8,13 @@ use Illuminate\Http\Request;
 
 class ProjectMemberController extends Controller
 {
-    // Add member
+    /**
+     * Add member
+     */
     public function store(Request $request, Project $project)
     {
-        $this->authorizeManagement($request->user(), $project);
+        // 🔒 POLICY
+        $this->authorize('invite', $project);
 
         $request->validate([
             'user_id' => 'required|exists:users,id',
@@ -35,10 +38,13 @@ class ProjectMemberController extends Controller
         ]);
     }
 
-    // Remove member
+    /**
+     * Remove member
+     */
     public function destroy(Request $request, Project $project, User $user)
     {
-        $this->authorizeManagement($request->user(), $project);
+        // 🔒 POLICY
+        $this->authorize('removeUser', $project);
 
         if ($project->owner_id === $user->id) {
             abort(403, 'Cannot remove project owner.');
@@ -50,16 +56,5 @@ class ProjectMemberController extends Controller
             'status' => true,
             'message' => 'Member removed'
         ]);
-    }
-
-    private function authorizeManagement($user, Project $project)
-    {
-        $role = $project->users()
-            ->where('user_id', $user->id)
-            ->value('role');
-
-        if (!in_array($role, ['owner', 'co_owner'])) {
-            abort(403, 'Insufficient permissions.');
-        }
     }
 }

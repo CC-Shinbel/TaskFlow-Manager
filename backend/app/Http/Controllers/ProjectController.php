@@ -10,9 +10,6 @@ use App\Notifications\ProjectInviteNotification;
 
 class ProjectController extends Controller
 {
-    /**
-     * List projects user belongs to
-     */
     public function index(Request $request)
     {
         $user = $request->user();
@@ -28,11 +25,10 @@ class ProjectController extends Controller
         ]);
     }
 
-    /**
-     * Create project
-     */
     public function store(Request $request)
     {
+        $this->authorize('create', Project::class);
+
         $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string'
@@ -46,7 +42,6 @@ class ProjectController extends Controller
             'owner_id' => $user->id,
         ]);
 
-        // Attach owner
         $project->users()->attach($user->id, [
             'role' => 'owner'
         ]);
@@ -58,14 +53,11 @@ class ProjectController extends Controller
         ], 201);
     }
 
-    /**
-     * Show project details
-     */
     public function show(Request $request, Project $project)
     {
-        $user = $request->user();
+        $this->authorize('view', $project);
 
-        $this->authorizeMembership($user, $project);
+        $user = $request->user();
 
         $project->load('users:id,name,email');
 
@@ -94,14 +86,9 @@ class ProjectController extends Controller
         ]);
     }
 
-    /**
-     * Delete project
-     */
     public function destroy(Request $request, Project $project)
     {
-        if ($project->owner_id !== $request->user()->id) {
-            abort(403, 'Only project owner can delete this project.');
-        }
+        $this->authorize('delete', $project);
 
         $project->delete();
 
@@ -112,12 +99,9 @@ class ProjectController extends Controller
         ]);
     }
 
-    /**
-     * Invite user to project (UPDATED)
-     */
     public function inviteUser(Request $request, Project $project)
     {
-        $this->authorizeMembership($request->user(), $project);
+        $this->authorize('invite', $project);
 
         $request->validate([
             'email' => 'required|email',
@@ -133,7 +117,6 @@ class ProjectController extends Controller
             ], 404);
         }
 
-        // Prevent duplicate membership
         if ($project->users()->where('user_id', $user->id)->exists()) {
             return response()->json([
                 'status' => false,
@@ -141,7 +124,6 @@ class ProjectController extends Controller
             ], 400);
         }
 
-        // Prevent duplicate invite
         $existingInvite = ProjectInvite::where([
             'project_id' => $project->id,
             'user_id' => $user->id,
@@ -155,7 +137,6 @@ class ProjectController extends Controller
             ], 400);
         }
 
-        // Create invite request
         $invite = ProjectInvite::create([
             'project_id' => $project->id,
             'user_id' => $user->id,
@@ -163,7 +144,6 @@ class ProjectController extends Controller
             'role' => $request->role
         ]);
 
-        // Send notification
         $user->notify(
             new ProjectInviteNotification($project, $request->user(), $invite)
         );
@@ -174,12 +154,9 @@ class ProjectController extends Controller
         ]);
     }
 
-    /**
-     * Change member role
-     */
     public function changeRole(Request $request, Project $project, User $user)
     {
-        $this->authorizeMembership($request->user(), $project);
+        $this->authorize('changeRole', $project);
 
         $request->validate([
             'role' => 'required|in:member,collaborator,co_owner'
@@ -195,12 +172,9 @@ class ProjectController extends Controller
         ]);
     }
 
-    /**
-     * Remove user from project
-     */
     public function removeUser(Request $request, Project $project, User $user)
     {
-        $this->authorizeMembership($request->user(), $project);
+        $this->authorize('removeUser', $project);
 
         if ($user->id === $project->owner_id) {
             abort(403, 'Cannot remove project owner.');
@@ -212,15 +186,5 @@ class ProjectController extends Controller
             'status' => true,
             'message' => 'User removed from project'
         ]);
-    }
-
-    /**
-     * Ensure user belongs to project
-     */
-    private function authorizeMembership($user, Project $project)
-    {
-        if (!$project->users()->where('user_id', $user->id)->exists()) {
-            abort(403, 'Unauthorized project access.');
-        }
     }
 }
