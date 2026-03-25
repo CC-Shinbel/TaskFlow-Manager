@@ -50,21 +50,27 @@ class TaskAssignmentPolicy
      */
     public function remove(User $user, Task $task, User $targetUser): bool
     {
-        // Self-removal always allowed
+        // ✅ Self-removal always allowed
         if ($user->id === $targetUser->id) {
             return true;
         }
 
-        // Personal task
+        // =========================
+        // PERSONAL TASK
+        // =========================
         if (is_null($task->project_id)) {
             return $task->created_by === $user->id;
         }
 
-        // Project role check
+        // =========================
+        // PROJECT TASK
+        // =========================
         $role = $task->project
             ->users()
-            ->where('project_user.user_id', $user->id)
+            ->where('users.id', $user->id) // ✅ FIXED
             ->value('project_user.role');
+
+        if (!$role) return false;
 
         return in_array($role, ['owner', 'co_owner', 'collaborator']);
     }

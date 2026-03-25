@@ -21,10 +21,9 @@ class TaskAssignmentController extends Controller
         $user = $request->user();
 
         $task = Task::findOrFail($taskId);
-        // 🔒 POLICY
-        Gate::authorize('assign-task', $task);
 
-        $user = $request->user();
+        // 🔒 POLICY (Gate-based)
+        Gate::authorize('assign-task', $task);
 
         $request->validate([
             'user_id' => 'required|exists:users,id'
@@ -46,12 +45,13 @@ class TaskAssignmentController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Prevent duplicate request
+        | Prevent duplicate pending request (FIXED)
         |--------------------------------------------------------------------------
         */
         $existingRequest = TaskAssignmentRequest::where([
             'task_id' => $task->id,
-            'user_id' => $targetUser->id
+            'user_id' => $targetUser->id,
+            'status' => 'pending'
         ])->first();
 
         if ($existingRequest) {
@@ -102,7 +102,11 @@ class TaskAssignmentController extends Controller
         // 🔒 POLICY
         $this->authorize('accept', $assignment);
 
-        // Prevent double processing
+        /*
+        |--------------------------------------------------------------------------
+        | Prevent double processing
+        |--------------------------------------------------------------------------
+        */
         if ($assignment->status !== 'pending') {
             return response()->json([
                 'status' => false,
@@ -114,25 +118,37 @@ class TaskAssignmentController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Assign user to task (avoid duplicate)
+        | 🔥 REASSIGNMENT LOGIC (CORE FIX)
         |--------------------------------------------------------------------------
         */
-        if (!$task->assignees()->where('users.id', $assignment->user_id)->exists()) {
-            $task->assignees()->attach($assignment->user_id, [
-                'assigned_by' => $assignment->assigned_by
-            ]);
-        }
+
+        // ✅ Remove ALL current assignees (safe even if empty)
+        $task->assignees()->detach();
+
+        // ✅ Assign accepted user
+        $task->assignees()->attach($assignment->user_id, [
+            'assigned_by' => $assignment->assigned_by
+        ]);
 
         /*
         |--------------------------------------------------------------------------
-        | Remove request
+        | Optional: Cancel ALL other pending requests
+        |--------------------------------------------------------------------------
+        */
+        TaskAssignmentRequest::where('task_id', $task->id)
+            ->where('id', '!=', $assignment->id)
+            ->delete();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Cleanup current request
         |--------------------------------------------------------------------------
         */
         $assignment->delete();
 
         return response()->json([
             'status' => true,
-            'message' => 'Task assignment accepted'
+            'message' => 'Task reassigned successfully'
         ]);
     }
 
@@ -168,7 +184,7 @@ class TaskAssignmentController extends Controller
      */
     public function destroy(Request $request, Task $task, User $userToRemove)
     {
-        // 🔒 POLICY (self OR manager)
+        // 🔒 POLICY
         $this->authorize('remove', [$task, $userToRemove]);
 
         /*

@@ -90,17 +90,9 @@ const EditTaskModal = ({ taskId, isOpen, onClose, onUpdated }: Props) => {
         due_date: task.due_date
       });
 
-      const removed = originalAssignees.filter(
-        id => !assignees.includes(id)
-      );
-
       const added = assignees.filter(
         id => !originalAssignees.includes(id)
       );
-
-      for (const userId of removed) {
-        await api.delete(`/tasks/${task.id}/assign/${userId}`);
-      }
 
       for (const userId of added) {
         await api.post(`/tasks/${task.id}/assign`, {
@@ -115,6 +107,21 @@ const EditTaskModal = ({ taskId, isOpen, onClose, onUpdated }: Props) => {
       setError(err.response?.data?.message || "Update failed.");
     }
 
+  };
+
+  const handleDelete = async () => {
+    if (!task) return;
+
+    const confirmDelete = confirm("Are you sure you want to delete this task?");
+    if (!confirmDelete) return;
+
+    try {
+      await api.delete(`/tasks/${task.id}`);
+      onUpdated();
+      onClose();
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Delete failed.");
+    }
   };
 
   return (
@@ -134,6 +141,7 @@ const EditTaskModal = ({ taskId, isOpen, onClose, onUpdated }: Props) => {
 
           <form onSubmit={handleUpdate} className="flex flex-col space-y-8">
 
+            {/* TITLE */}
             <input
               value={task.title}
               onChange={(e) =>
@@ -142,6 +150,7 @@ const EditTaskModal = ({ taskId, isOpen, onClose, onUpdated }: Props) => {
               className="w-full px-4 py-3 border rounded-xl bg-white/50 border-white/30"
             />
 
+            {/* DESCRIPTION */}
             <textarea
               rows={4}
               value={task.description}
@@ -154,6 +163,48 @@ const EditTaskModal = ({ taskId, isOpen, onClose, onUpdated }: Props) => {
               className="w-full px-4 py-3 border rounded-xl bg-white/50 border-white/30"
             />
 
+            {/* STATUS + PRIORITY + DATE */}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+
+              {/* STATUS */}
+              <select
+                value={task.status}
+                onChange={(e) =>
+                  setTask({ ...task, status: e.target.value as any })
+                }
+                className="px-4 py-3 text-black border rounded-xl bg-white/70"
+              >
+                <option value="pending">Pending</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+              </select>
+
+              {/* PRIORITY */}
+              <select
+                value={task.priority}
+                onChange={(e) =>
+                  setTask({ ...task, priority: e.target.value as any })
+                }
+                className="px-4 py-3 text-black border rounded-xl bg-white/70"
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+
+              {/* DUE DATE */}
+              <input
+                type="date"
+                value={task.due_date ? task.due_date.split("T")[0] : ""}
+                onChange={(e) =>
+                  setTask({ ...task, due_date: e.target.value })
+                }
+                className="px-4 py-3 text-black border rounded-xl bg-white/70"
+              />
+
+            </div>
+
+            {/* ASSIGNEES */}
             <select
               multiple
               value={assignees.map(String)}
@@ -180,22 +231,36 @@ const EditTaskModal = ({ taskId, isOpen, onClose, onUpdated }: Props) => {
               </div>
             )}
 
-            <div className="flex justify-end gap-4">
+            {/* ACTIONS */}
+            <div className="flex items-center justify-between gap-4">
 
+              {/* DELETE */}
               <button
                 type="button"
-                onClick={onClose}
-                className="px-6 py-3 rounded-xl bg-white/20"
+                onClick={handleDelete}
+                className="px-6 py-3 font-semibold text-white transition rounded-xl bg-red-500/70 hover:bg-red-500"
               >
-                Cancel
+                Delete Task
               </button>
 
-              <button
-                type="submit"
-                className="px-8 py-3 rounded-xl bg-[var(--clr-primary-a0)]"
-              >
-                Update Task
-              </button>
+              <div className="flex gap-4">
+
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-6 py-3 transition rounded-xl bg-white/20 hover:bg-white/30"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="px-8 py-3 rounded-xl bg-[var(--clr-primary-a0)] hover:bg-[var(--clr-primary-a10)] transition"
+                >
+                  Update Task
+                </button>
+
+              </div>
 
             </div>
 
