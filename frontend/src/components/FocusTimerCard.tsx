@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import GlassDropdown from "./GlassDropdown";
 
 type Technique =
   | "pomodoro"
@@ -34,6 +35,16 @@ const FocusTimerCard = () => {
   const intervalRef = useRef<number | null>(null);
 
   // =========================
+  // DROPDOWN OPTIONS
+  // =========================
+  const techniqueOptions = Object.entries(techniqueLabels).map(
+    ([value, label]) => ({
+      value,
+      label,
+    })
+  );
+
+  // =========================
   // HANDLE TECHNIQUE CHANGE
   // =========================
   useEffect(() => {
@@ -49,7 +60,7 @@ const FocusTimerCard = () => {
   }, [technique]);
 
   // =========================
-  // CLEANUP (IMPORTANT)
+  // CLEANUP
   // =========================
   useEffect(() => {
     return () => {
@@ -126,28 +137,19 @@ const FocusTimerCard = () => {
       </h3>
 
       {/* =========================
-          TECHNIQUE DROPDOWN
+          GLASS DROPDOWN (NEW)
       ========================= */}
       <div className="mb-4">
-        <select
+        <GlassDropdown
+          options={techniqueOptions}
           value={technique}
-          onChange={(e) =>
-            setTechnique(e.target.value as Technique)
-          }
-          className="w-full px-4 py-2 text-black border rounded-xl bg-white/70 border-white/30 focus:outline-none"
-        >
-          {Object.entries(techniqueLabels).map(
-            ([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            )
-          )}
-        </select>
+          onChange={(val) => setTechnique(val as Technique)}
+          placeholder="Select technique"
+        />
       </div>
 
       {/* =========================
-          CUSTOM INPUT (FIXED HEIGHT)
+          CUSTOM INPUT
       ========================= */}
       <div
         className={`flex gap-2 mb-4 transition-all duration-200 ${

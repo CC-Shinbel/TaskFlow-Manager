@@ -80,8 +80,10 @@ const DashboardPage = () => {
     <div className="relative flex flex-col h-full overflow-hidden">
 
       {/* Background */}
-      <div className="absolute z-0 w-[500px] h-[500px] bg-white/10 rounded-full blur-3xl -top-20 -left-20 pointer-events-none"></div>
-      <div className="absolute z-0 w-[600px] h-[600px] bg-blue-300/20 rounded-full blur-3xl bottom-[-150px] right-[-150px] pointer-events-none"></div>
+{/*       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+        <div className="absolute w-[500px] h-[500px] bg-white/10 rounded-full blur-3xl -top-20 -left-20"></div>
+        <div className="absolute w-[600px] h-[600px] bg-blue-300/20 rounded-full blur-3xl bottom-[-150px] right-[-150px]"></div>
+      </div> */}
 
       {/* CONTENT WRAPPER */}
       <div className="relative z-10 flex flex-col flex-1 min-h-0">

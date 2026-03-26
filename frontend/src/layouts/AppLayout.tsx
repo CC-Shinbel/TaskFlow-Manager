@@ -9,7 +9,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
       <Sidebar />
 
       {/* RIGHT SIDE */}
-      <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+      <div className="flex flex-col flex-1 min-h-0">
 
         {/* NAVBAR */}
         <TopNavbar />
@@ -17,12 +17,14 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
         {/* MAIN CONTENT AREA */}
         <main className="relative flex-1 min-h-0 overflow-x-hidden overflow-y-auto custom-scrollbar">
 
-          {/* Background */}
-          <div className="absolute w-[500px] h-[500px] bg-white/10 rounded-full blur-3xl -top-20 -left-20 pointer-events-none"></div>
-          <div className="absolute w-[600px] h-[600px] bg-blue-300/20 rounded-full blur-3xl bottom-[-150px] right-[-150px] pointer-events-none"></div>
+          {/* BACKGROUND */}
+          <div className="fixed inset-0 z-0 pointer-events-none">
+            <div className="absolute w-[500px] h-[500px] bg-white/10 rounded-full blur-3xl -top-20 -left-20"></div>
+            <div className="absolute w-[600px] h-[600px] bg-blue-300/20 rounded-full blur-3xl bottom-[-150px] right-[-150px]"></div>
+          </div>
 
           {/* Page Content */}
-          <div className="relative z-10">
+          <div className="relative z-10 h-full">
             {children}
           </div>
 

@@ -2,8 +2,10 @@ import { useEffect, useState, useCallback } from "react";
 import api from "../services/api";
 import { useAuth } from "../hooks/UseAuth";
 import axios from "axios";
+
 import CreateTaskModal from "../components/CreateTaskModal";
 import EditTaskModal from "../components/EditTaskModal";
+import GlassDropdown from "../components/GlassDropdown";
 
 interface Task {
   id: number;
@@ -25,12 +27,47 @@ const TaskListPage = () => {
   const [lastPage, setLastPage] = useState(1);
 
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
   const [status, setStatus] = useState("");
   const [priority, setPriority] = useState("");
   const [sort, setSort] = useState("asc");
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editTaskId, setEditTaskId] = useState<number | null>(null);
+
+  // =========================
+  // OPTIONS
+  // =========================
+  const statusOptions = [
+    { label: "All Status", value: "" },
+    { label: "Pending", value: "pending" },
+    { label: "In Progress", value: "in_progress" },
+    { label: "Completed", value: "completed" },
+  ];
+
+  const priorityOptions = [
+    { label: "All Priority", value: "" },
+    { label: "Low", value: "low" },
+    { label: "Medium", value: "medium" },
+    { label: "High", value: "high" },
+  ];
+
+  const sortOptions = [
+    { label: "Due Date ↑", value: "asc" },
+    { label: "Due Date ↓", value: "desc" },
+  ];
+
+  // =========================
+  // DEBOUNCE SEARCH
+  // =========================
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [search]);
 
   // =========================
   // FETCH TASKS
@@ -43,10 +80,11 @@ const TaskListPage = () => {
       const response = await api.get("/tasks", {
         params: {
           page,
-          search,
+          search: debouncedSearch,
           status,
           priority,
-          sort,
+          sort_by: "due_date",
+          direction: sort,
         },
       });
 
@@ -54,16 +92,14 @@ const TaskListPage = () => {
       setLastPage(response.data.data.last_page);
     } catch (err) {
       if (axios.isAxiosError(err)) {
-        setError(
-          err.response?.data?.message || "Failed to fetch tasks."
-        );
+        setError(err.response?.data?.message || "Failed to fetch tasks.");
       } else {
         setError("Unexpected error occurred.");
       }
     } finally {
       setLoading(false);
     }
-  }, [page, search, status, priority, sort]);
+  }, [page, debouncedSearch, status, priority, sort]);
 
   useEffect(() => {
     fetchTasks();
@@ -84,9 +120,7 @@ const TaskListPage = () => {
       fetchTasks();
     } catch (err) {
       if (axios.isAxiosError(err)) {
-        setError(
-          err.response?.data?.message || "Delete failed."
-        );
+        setError(err.response?.data?.message || "Delete failed.");
       } else {
         setError("Unexpected error occurred.");
       }
@@ -95,7 +129,6 @@ const TaskListPage = () => {
 
   return (
     <div className="relative min-h-full overflow-hidden">
-
       <div className="relative z-10 p-10">
 
         {/* HEADER */}
@@ -118,6 +151,7 @@ const TaskListPage = () => {
         {/* FILTER BAR */}
         <div className="grid grid-cols-1 gap-4 p-6 mb-8 border shadow-xl backdrop-blur-xl bg-white/30 border-white/20 rounded-2xl md:grid-cols-5">
 
+          {/* SEARCH */}
           <input
             type="text"
             placeholder="Search..."
@@ -129,49 +163,44 @@ const TaskListPage = () => {
             }}
           />
 
-          <select
-            className="px-4 py-2 text-black border rounded-xl bg-white/50 border-white/30"
+          {/* STATUS */}
+          <GlassDropdown
+            options={statusOptions}
             value={status}
-            onChange={(e) => {
-              setStatus(e.target.value);
+            onChange={(value) => {
+              setStatus(value);
               setPage(1);
             }}
-          >
-            <option value="">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="in_progress">In Progress</option>
-            <option value="completed">Completed</option>
-          </select>
+            placeholder="All Status"
+          />
 
-          <select
-            className="px-4 py-2 text-black border rounded-xl bg-white/50 border-white/30"
+          {/* PRIORITY */}
+          <GlassDropdown
+            options={priorityOptions}
             value={priority}
-            onChange={(e) => {
-              setPriority(e.target.value);
+            onChange={(value) => {
+              setPriority(value);
               setPage(1);
             }}
-          >
-            <option value="">All Priority</option>
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-          </select>
+            placeholder="All Priority"
+          />
 
-          <select
-            className="px-4 py-2 text-black border rounded-xl bg-white/50 border-white/30"
+          {/* SORT */}
+          <GlassDropdown
+            options={sortOptions}
             value={sort}
-            onChange={(e) => {
-              setSort(e.target.value);
+            onChange={(value) => {
+              setSort(value);
               setPage(1);
             }}
-          >
-            <option value="asc">Due Date ↑</option>
-            <option value="desc">Due Date ↓</option>
-          </select>
+            placeholder="Sort"
+          />
 
+          {/* RESET */}
           <button
             onClick={() => {
               setSearch("");
+              setDebouncedSearch("");
               setStatus("");
               setPriority("");
               setSort("asc");
@@ -184,14 +213,10 @@ const TaskListPage = () => {
         </div>
 
         {/* LOADING */}
-        {loading && (
-          <p className="text-white">Loading tasks...</p>
-        )}
+        {loading && <p className="text-white">Loading tasks...</p>}
 
         {/* ERROR */}
-        {error && (
-          <p className="mb-4 text-red-300">{error}</p>
-        )}
+        {error && <p className="mb-4 text-red-300">{error}</p>}
 
         {/* EMPTY */}
         {!loading && tasks.length === 0 && (
@@ -225,8 +250,6 @@ const TaskListPage = () => {
               </div>
 
               <div className="flex gap-3 mt-4">
-
-                {/* EDIT MODAL TRIGGER */}
                 <button
                   onClick={() => setEditTaskId(task.id)}
                   className="px-3 py-1 text-sm bg-blue-500 rounded-lg hover:bg-blue-600"
@@ -240,7 +263,6 @@ const TaskListPage = () => {
                 >
                   Delete
                 </button>
-
               </div>
             </div>
           ))}
@@ -268,24 +290,21 @@ const TaskListPage = () => {
             Next
           </button>
         </div>
-
       </div>
 
-      {/* CREATE TASK MODAL */}
+      {/* MODALS */}
       <CreateTaskModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         onCreated={fetchTasks}
       />
 
-      {/* EDIT TASK MODAL */}
       <EditTaskModal
         taskId={editTaskId}
         isOpen={editTaskId !== null}
         onClose={() => setEditTaskId(null)}
         onUpdated={fetchTasks}
       />
-
     </div>
   );
 };
