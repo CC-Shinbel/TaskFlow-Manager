@@ -86,6 +86,39 @@ class ProjectController extends Controller
         ]);
     }
 
+    // ─── NEW: Edit / update a project ────────────────────────────────────────
+    public function update(Request $request, Project $project)
+    {
+        $this->authorize('update', $project);
+
+        $validated = $request->validate([
+            'name'        => 'sometimes|required|string|max:255',
+            'description' => 'sometimes|nullable|string|max:5000',
+        ]);
+
+        // Guard: at least one field must be present so we never do a no-op PATCH
+        if (empty($validated)) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'No updatable fields provided.'
+            ], 422);
+        }
+
+        $project->update($validated);
+
+        return response()->json([
+            'status'  => true,
+            'message' => 'Project updated',
+            'data'    => [
+                'id'          => $project->id,
+                'name'        => $project->name,
+                'description' => $project->description,
+                'updated_at'  => $project->updated_at,
+            ]
+        ]);
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     public function destroy(Request $request, Project $project)
     {
         $this->authorize('delete', $project);

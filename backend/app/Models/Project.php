@@ -12,6 +12,11 @@ class Project extends Model
         'owner_id'
     ];
 
+    protected $casts = [
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+    ];
+
     // Real project owner
     public function owner()
     {
@@ -30,5 +35,11 @@ class Project extends Model
     public function tasks()
     {
         return $this->hasMany(Task::class);
+    }
+
+    // Scope: filter by owner
+    public function scopeOwnedBy($query, $userId)
+    {
+        return $query->where('owner_id', $userId);
     }
 }

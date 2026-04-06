@@ -22,4 +22,7 @@ export const projectService = {
             role,
         });
     },
+    updateProject: async (id: number, data: { name?: string; description?: string }) => {
+    return api.patch(`/projects/${id}`, data);
+    },
 };

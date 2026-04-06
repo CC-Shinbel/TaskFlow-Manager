@@ -39,6 +39,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::put('/projects/{project}/members/{user}/role', [ProjectController::class, 'changeRole']);
 
+    Route::patch('/projects/{project}', [ProjectController::class, 'update']);
+
     Route::delete('/projects/{project}/members/{user}', [ProjectController::class, 'removeUser']);
 
     /*

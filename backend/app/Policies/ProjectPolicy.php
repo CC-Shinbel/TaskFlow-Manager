@@ -8,17 +8,26 @@ use App\Models\User;
 class ProjectPolicy
 {
     /**
-     * User can view project if member
+     * Resolve the current user's role in the project.
+     * Returns null if the user is not a member.
      */
-    public function view(User $user, Project $project): bool
+    private function getRole(User $user, Project $project): ?string
     {
         return $project->users()
             ->where('user_id', $user->id)
-            ->exists();
+            ->value('project_user.role');
     }
 
     /**
-     * Any authenticated user can create project
+     * User can view project if they are a member (any role).
+     */
+    public function view(User $user, Project $project): bool
+    {
+        return $this->getRole($user, $project) !== null;
+    }
+
+    /**
+     * Any authenticated user can create a project.
      */
     public function create(User $user): bool
     {
@@ -26,7 +35,15 @@ class ProjectPolicy
     }
 
     /**
-     * Only owner can delete
+     * Only owner and co_owner can edit project details.
+     */
+    public function update(User $user, Project $project): bool
+    {
+        return in_array($this->getRole($user, $project), ['owner', 'co_owner']);
+    }
+
+    /**
+     * Only the owner can delete the project.
      */
     public function delete(User $user, Project $project): bool
     {
@@ -34,38 +51,26 @@ class ProjectPolicy
     }
 
     /**
-     * Invite users (collaborator and above)
+     * Collaborators and above can invite users.
      */
     public function invite(User $user, Project $project): bool
     {
-        $role = $project->users()
-            ->where('user_id', $user->id)
-            ->value('project_user.role');
-
-        return in_array($role, ['owner', 'co_owner', 'collaborator']);
+        return in_array($this->getRole($user, $project), ['owner', 'co_owner', 'collaborator']);
     }
 
     /**
-     * Change roles (owner & co_owner only)
+     * Only owner and co_owner can change member roles.
      */
     public function changeRole(User $user, Project $project): bool
     {
-        $role = $project->users()
-            ->where('user_id', $user->id)
-            ->value('project_user.role');
-
-        return in_array($role, ['owner', 'co_owner']);
+        return in_array($this->getRole($user, $project), ['owner', 'co_owner']);
     }
 
     /**
-     * Remove users (owner & co_owner only)
+     * Only owner and co_owner can remove members.
      */
     public function removeUser(User $user, Project $project): bool
     {
-        $role = $project->users()
-            ->where('user_id', $user->id)
-            ->value('project_user.role');
-
-        return in_array($role, ['owner', 'co_owner']);
+        return in_array($this->getRole($user, $project), ['owner', 'co_owner']);
     }
 }
